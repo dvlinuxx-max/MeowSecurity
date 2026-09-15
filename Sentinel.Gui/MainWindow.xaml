@@ -161,12 +161,12 @@
 
     <Grid>
         <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="*" />
             <ColumnDefinition Width="216" />
+            <ColumnDefinition Width="*" />
         </Grid.ColumnDefinitions>
 
-        <!-- ======================= SIDEBAR (right, RTL) ======================= -->
-        <Border Grid.Column="1" Background="{StaticResource Panel}"
+        <!-- ======================= SIDEBAR (right side, RTL) ======================= -->
+        <Border Grid.Column="0" Background="{StaticResource Panel}"
                 BorderBrush="{StaticResource Line}" BorderThickness="1,0,0,0">
             <Grid>
                 <Grid.RowDefinitions>
@@ -227,7 +227,7 @@
         </Border>
 
         <!-- ======================= CONTENT ======================= -->
-        <Grid Grid.Column="0">
+        <Grid Grid.Column="1">
 
             <!-- === OVERVIEW === -->
             <Grid x:Name="PageOverview" Margin="28,26">
@@ -318,19 +318,24 @@
                         </StackPanel>
                     </Border>
 
-                    <!-- Network: down/up + wave -->
+                    <!-- Network: down/up on top, wave in its own strip below (no overlap) -->
                     <Border Grid.Column="4" Background="{StaticResource Card}" CornerRadius="12"
                             BorderBrush="{StaticResource Line}" BorderThickness="1" Padding="18,16">
                         <Grid FlowDirection="LeftToRight">
-                            <StackPanel>
-                                <TextBlock Text="الشبكة" Foreground="{StaticResource Muted}" FontSize="12.5" />
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="*" />
+                            </Grid.RowDefinitions>
+                            <TextBlock Grid.Row="0" Text="الشبكة" Foreground="{StaticResource Muted}" FontSize="12.5" />
+                            <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,8,0,0">
                                 <TextBlock x:Name="NetDown" Text="↓ 0" Foreground="{StaticResource NetIn}"
-                                           FontSize="19" FontWeight="Bold" Margin="0,6,0,0" />
+                                           FontSize="18" FontWeight="Bold" Margin="0,0,16,0" />
                                 <TextBlock x:Name="NetUp" Text="↑ 0" Foreground="{StaticResource NetOut}"
-                                           FontSize="19" FontWeight="Bold" Margin="0,2,0,0" />
+                                           FontSize="18" FontWeight="Bold" />
                             </StackPanel>
-                            <local:Sparkline x:Name="NetSpark" Height="42" VerticalAlignment="Bottom"
-                                             Margin="0,26,0,0" />
+                            <local:Sparkline x:Name="NetSpark" Grid.Row="2" Height="34" VerticalAlignment="Bottom"
+                                             Margin="0,10,0,0" />
                         </Grid>
                     </Border>
 
