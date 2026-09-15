@@ -1,5 +1,6 @@
 using System.Security.Principal;
 using System.Text;
+using Sentinel.Core.Intel;
 using Sentinel.Core.Persistence;
 using Sentinel.Core.Processes;
 
@@ -13,6 +14,77 @@ if (args.Contains("--autoruns"))
         Console.WriteLine($"  [{e.Verdict,-10}] {e.Location,-16} {e.Name,-28} {e.Reason}\n" +
                           $"               {e.ImagePath}");
     return;
+}
+
+// Threat-intel probes. These exercise the same reputation stack the GUI uses.
+int Idx(string flag) => Array.IndexOf(args, flag);
+
+if (args.Contains("--intel-status"))
+{
+    var s = IntelSettings.Load();
+    Console.WriteLine("Threat intel configuration");
+    Console.WriteLine(new string('-', 40));
+    Console.WriteLine($"  Online lookups : {(s.OnlineLookupsEnabled ? "on" : "off")}");
+    Console.WriteLine($"  CIRCL hashlookup: always on (keyless)");
+    Console.WriteLine($"  MalwareBazaar   : {(string.IsNullOrWhiteSpace(s.EffectiveAbuseChKey) ? "no key (skipped)" : "key present")}");
+    Console.WriteLine($"  VirusTotal      : {(s.HasVirusTotal ? "enabled (BYO key)" : "off / no key")}");
+    Console.WriteLine($"  Config file     : {IntelSettings.ConfigPath}");
+    return;
+}
+
+if (Idx("--hash") is var hi and >= 0 && hi + 1 < args.Length)
+{
+    using var intel = new ThreatIntel();
+    var rep = await intel.LookupHashAsync(args[hi + 1]);
+    PrintRep(rep);
+    return;
+}
+
+if (Idx("--lookup") is var li and >= 0 && li + 1 < args.Length)
+{
+    using var intel = new ThreatIntel();
+    Console.WriteLine($"Hashing {args[li + 1]} ...");
+    var rep = await intel.LookupFileAsync(args[li + 1]);
+    PrintRep(rep);
+    return;
+}
+
+if (Idx("--scan-file") is var si and >= 0 && si + 1 < args.Length)
+{
+    using var intel = new ThreatIntel();
+    if (!intel.CanScan) { Console.WriteLine("VirusTotal not configured — add your key in %LOCALAPPDATA%\\Sentinel\\settings.json"); return; }
+    Console.WriteLine("Scanning via VirusTotal (this can take a moment) ...");
+    PrintScan(await intel.ScanFileAsync(args[si + 1]));
+    return;
+}
+
+if (Idx("--scan-url") is var ui and >= 0 && ui + 1 < args.Length)
+{
+    using var intel = new ThreatIntel();
+    if (!intel.CanScan) { Console.WriteLine("VirusTotal not configured — add your key in %LOCALAPPDATA%\\Sentinel\\settings.json"); return; }
+    Console.WriteLine("Submitting URL to VirusTotal ...");
+    PrintScan(await intel.ScanUrlAsync(args[ui + 1]));
+    return;
+}
+
+static void PrintRep(HashReputation r)
+{
+    Console.WriteLine(new string('-', 40));
+    Console.WriteLine($"  verdict : {r.Level}");
+    Console.WriteLine($"  source  : {(string.IsNullOrEmpty(r.Source) ? "(none answered)" : r.Source)}");
+    if (r.Detail is not null) Console.WriteLine($"  detail  : {r.Detail}");
+    if (r.Family is not null) Console.WriteLine($"  family  : {r.Family}");
+    if (r.Permalink is not null) Console.WriteLine($"  report  : {r.Permalink}");
+}
+
+static void PrintScan(ScanReport r)
+{
+    Console.WriteLine(new string('-', 40));
+    if (!r.Ok) { Console.WriteLine($"  error: {r.Error}"); return; }
+    Console.WriteLine($"  target  : {r.Target}");
+    Console.WriteLine($"  verdict : {r.Level}  ({r.Malicious} malicious / {r.TotalEngines} engines)");
+    if (r.Family is not null) Console.WriteLine($"  family  : {r.Family}");
+    if (r.Permalink is not null) Console.WriteLine($"  report  : {r.Permalink}");
 }
 
 // Optional plain-text mirror of the report, so an elevated launch can hand results back.

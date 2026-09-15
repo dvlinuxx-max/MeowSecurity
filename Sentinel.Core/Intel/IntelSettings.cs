@@ -1,0 +1,92 @@
+using System;
+using System.IO;
+using System.Text.Json;
+using System.Text.Json.Serialization;
+
+namespace Sentinel.Core.Intel;
+
+/// <summary>
+/// User-owned intel configuration, kept out of the app package on purpose.
+///
+/// The store build ships with NO embedded keys. Reputation for every user runs
+/// through the keyless CIRCL hashlookup, so nothing here is required to get value.
+/// VirusTotal is opt-in and bring-your-own-key: the key lives only in this file
+/// under %LOCALAPPDATA%\Sentinel and is never transmitted anywhere except VT itself.
+///
+/// Resolution order for each key: explicit file value, then environment variable
+/// (SENTINEL_VT_KEY / SENTINEL_ABUSECH_KEY) so CI and dev machines can inject one
+/// without writing it to disk.
+/// </summary>
+public sealed class IntelSettings
+{
+    public string? VirusTotalApiKey { get; set; }
+    public string? AbuseChApiKey { get; set; }
+
+    /// <summary>Master switch for any outbound reputation lookup. Off means fully offline.</summary>
+    public bool OnlineLookupsEnabled { get; set; } = true;
+
+    /// <summary>Allow sending file hashes to VirusTotal (only hashes, never file contents, unless the user explicitly uploads).</summary>
+    public bool VirusTotalEnabled { get; set; } = false;
+
+    [JsonIgnore]
+    public string? EffectiveVirusTotalKey =>
+        FirstNonEmpty(VirusTotalApiKey, Environment.GetEnvironmentVariable("SENTINEL_VT_KEY"));
+
+    [JsonIgnore]
+    public string? EffectiveAbuseChKey =>
+        FirstNonEmpty(AbuseChApiKey, Environment.GetEnvironmentVariable("SENTINEL_ABUSECH_KEY"));
+
+    [JsonIgnore]
+    public bool HasVirusTotal => VirusTotalEnabled && !string.IsNullOrWhiteSpace(EffectiveVirusTotalKey);
+
+    // ---- persistence ----
+
+    public static string ConfigDirectory =>
+        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Sentinel");
+
+    public static string ConfigPath => Path.Combine(ConfigDirectory, "settings.json");
+
+    private static readonly JsonSerializerOptions JsonOpts = new()
+    {
+        WriteIndented = true,
+        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+    };
+
+    public static IntelSettings Load()
+    {
+        try
+        {
+            if (File.Exists(ConfigPath))
+            {
+                var json = File.ReadAllText(ConfigPath);
+                return JsonSerializer.Deserialize<IntelSettings>(json, JsonOpts) ?? new IntelSettings();
+            }
+        }
+        catch
+        {
+            // Corrupt or unreadable config never blocks startup — fall back to defaults.
+        }
+        return new IntelSettings();
+    }
+
+    public void Save()
+    {
+        try
+        {
+            Directory.CreateDirectory(ConfigDirectory);
+            File.WriteAllText(ConfigPath, JsonSerializer.Serialize(this, JsonOpts));
+        }
+        catch
+        {
+            // Best effort — a read-only profile just means settings don't persist.
+        }
+    }
+
+    private static string? FirstNonEmpty(params string?[] values)
+    {
+        foreach (var v in values)
+            if (!string.IsNullOrWhiteSpace(v))
+                return v.Trim();
+        return null;
+    }
+}
