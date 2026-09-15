@@ -36,7 +36,6 @@ public partial class MainWindow : Window
 
         NetSpark.Stroke = Res("NetIn"); NetSpark.Fill = Res("NetFill");
         NetBigGraph.Stroke = Res("NetIn"); NetBigGraph.Fill = Res("NetFill");
-        HeroPulse.Stroke = Res("Green");
 
         ShowPage("overview");
         Loaded += (_, _) => { Tick(); _timer.Tick += (_, _) => Tick(); _timer.Start(); };
@@ -160,7 +159,6 @@ public partial class MainWindow : Window
     {
         CpuBig.Text = $"{pulse.CpuPercent:0}%";
         CpuMeter.Value = pulse.CpuPercent;
-        HeroPulse.Push(pulse.CpuPercent / 100.0);
 
         double memFrac = pulse.MemoryTotal > 0 ? (double)pulse.MemoryUsed / pulse.MemoryTotal : 0;
         MemBig.Text = $"{memFrac * 100:0}%";
@@ -188,6 +186,7 @@ public partial class MainWindow : Window
 
         Brush color;
         int alarm = suspicious + hidden;
+        int score = Math.Clamp(100 - alarm * 22 - review * 5, 0, 100);
         if (alarm > 0)
         {
             color = Res("Red");
@@ -207,7 +206,10 @@ public partial class MainWindow : Window
             HeroSub.Text = "كل العمليات موقّعة، ولا كود محقون، ولا عملية مخفية";
         }
         HeroTitle.Foreground = color;
-        HeroPulse.Stroke = color;
+        HeroScore.Text = score.ToString();
+        HeroScore.Foreground = color;
+        Shield.Accent = color;
+        Shield.Score = score;
         LiveDot.Fill = color;
     }
 

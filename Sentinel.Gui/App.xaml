@@ -3,40 +3,80 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              StartupUri="MainWindow.xaml">
     <Application.Resources>
-        <!-- Palette tuned to Burp Suite: neutral dark grey ground with the vivid Burp
-             orange (#FF6633) as the interaction accent, and bright traffic-light health hues. -->
-        <SolidColorBrush x:Key="Bg"        Color="#232629" />
-        <SolidColorBrush x:Key="Panel"     Color="#2B2F33" />
-        <SolidColorBrush x:Key="Card"      Color="#31353A" />
-        <SolidColorBrush x:Key="CardAlt"   Color="#2A2E32" />
-        <SolidColorBrush x:Key="Line"      Color="#3D434A" />
-        <SolidColorBrush x:Key="Text"      Color="#ECEEF0" />
-        <SolidColorBrush x:Key="Muted"     Color="#AAB2BB" />
-        <SolidColorBrush x:Key="Faint"     Color="#727B85" />
+        <!-- ============================================================
+             Palette — a warm graphite instrument panel lit by a single
+             orange energy. The dark is deliberately warm (not the generic
+             blue-black), because the whole identity radiates from the amber
+             accent: everything else stays quiet so that one colour carries.
+             ============================================================ -->
 
-        <!-- Interaction / brand: the vivid Burp orange. -->
-        <SolidColorBrush x:Key="Brand"     Color="#FF6633" />
-        <SolidColorBrush x:Key="BrandDeep" Color="#3E2415" />
+        <!-- Grounds -->
+        <SolidColorBrush x:Key="Bg"        Color="#131009" />
+        <SolidColorBrush x:Key="Panel"     Color="#1A160F" />
+        <SolidColorBrush x:Key="Card"      Color="#211C13" />
+        <SolidColorBrush x:Key="CardAlt"   Color="#1B1710" />
+        <SolidColorBrush x:Key="Line"      Color="#342C1E" />
+        <SolidColorBrush x:Key="Text"      Color="#F6EEDF" />
+        <SolidColorBrush x:Key="Muted"     Color="#B7A98F" />
+        <SolidColorBrush x:Key="Faint"     Color="#7C6F58" />
 
-        <!-- Bright health signals. -->
-        <SolidColorBrush x:Key="Green"     Color="#2FD07A" />
-        <SolidColorBrush x:Key="GreenTint" Color="#12331F" />
-        <SolidColorBrush x:Key="Amber"     Color="#FFC53D" />
-        <SolidColorBrush x:Key="AmberTint" Color="#3A2E0F" />
-        <SolidColorBrush x:Key="Red"       Color="#FF5252" />
-        <SolidColorBrush x:Key="RedTint"   Color="#3A1A1A" />
+        <!-- Brand / interaction: the vivid orange, with a hotter tip and a deep bed. -->
+        <SolidColorBrush x:Key="Brand"     Color="#FF6A16" />
+        <SolidColorBrush x:Key="BrandGlow" Color="#FF9838" />
+        <SolidColorBrush x:Key="BrandDeep" Color="#3E2610" />
+
+        <!-- Health signals. Kept distinct because threat level must read instantly. -->
+        <SolidColorBrush x:Key="Green"     Color="#34D399" />
+        <SolidColorBrush x:Key="GreenTint" Color="#123024" />
+        <SolidColorBrush x:Key="Amber"     Color="#FFB020" />
+        <SolidColorBrush x:Key="AmberTint" Color="#3A2C0C" />
+        <SolidColorBrush x:Key="Red"       Color="#FF4D5E" />
+        <SolidColorBrush x:Key="RedTint"   Color="#3A1518" />
 
         <!-- Process-type colouring + new-process flash. -->
-        <SolidColorBrush x:Key="ServiceText" Color="#C792EA" />
-        <SolidColorBrush x:Key="NewTint"     Color="#12331F" />
+        <SolidColorBrush x:Key="ServiceText" Color="#C9A2FF" />
+        <SolidColorBrush x:Key="NewTint"     Color="#13301F" />
 
         <!-- Live graph fills. -->
-        <SolidColorBrush x:Key="CpuFill" Color="#2EFF6633" />
-        <SolidColorBrush x:Key="MemFill" Color="#2EFFC53D" />
-        <SolidColorBrush x:Key="NetFill" Color="#2E4FC3F7" />
-        <SolidColorBrush x:Key="NetIn"   Color="#4FC3F7" />
-        <SolidColorBrush x:Key="NetOut"  Color="#2FD07A" />
+        <SolidColorBrush x:Key="CpuFill" Color="#33FF6A16" />
+        <SolidColorBrush x:Key="MemFill" Color="#33FFB020" />
+        <SolidColorBrush x:Key="NetFill" Color="#2438BDF8" />
+        <SolidColorBrush x:Key="NetIn"   Color="#38BDF8" />
+        <SolidColorBrush x:Key="NetOut"  Color="#34D399" />
 
-        <FontFamily x:Key="Ui">Segoe UI</FontFamily>
+        <!-- ============================================================
+             Gradients & depth — where the "instrument" feel comes from.
+             ============================================================ -->
+
+        <!-- Window ground: a faint warm rise from bottom to top. -->
+        <LinearGradientBrush x:Key="BgGrad" StartPoint="0,0" EndPoint="0,1">
+            <GradientStop Color="#181309" Offset="0" />
+            <GradientStop Color="#100D07" Offset="1" />
+        </LinearGradientBrush>
+
+        <!-- Card face: a subtle top-lit panel, so cards have a surface, not a flat fill. -->
+        <LinearGradientBrush x:Key="CardGrad" StartPoint="0,0" EndPoint="0,1">
+            <GradientStop Color="#241E14" Offset="0" />
+            <GradientStop Color="#1B1710" Offset="1" />
+        </LinearGradientBrush>
+
+        <!-- The signature orange, as a live gradient for the gauge and accents. -->
+        <LinearGradientBrush x:Key="BrandGrad" StartPoint="0,0" EndPoint="1,1">
+            <GradientStop Color="#FFAE44" Offset="0" />
+            <GradientStop Color="#FF6A16" Offset="0.55" />
+            <GradientStop Color="#FF4A00" Offset="1" />
+        </LinearGradientBrush>
+
+        <!-- Hero band wash: deep amber bed that fades into the card. -->
+        <LinearGradientBrush x:Key="HeroWash" StartPoint="1,0" EndPoint="0,1">
+            <GradientStop Color="#2A1B0C" Offset="0" />
+            <GradientStop Color="#1C1710" Offset="0.6" />
+            <GradientStop Color="#1C1710" Offset="1" />
+        </LinearGradientBrush>
+
+        <!-- Typography: Tajawal — a modern geometric Arabic/Latin family, one voice
+             throughout. Falls back to Segoe UI if the embedded font is unavailable. -->
+        <FontFamily x:Key="Ui">pack://application:,,,/Fonts/#Tajawal, Segoe UI</FontFamily>
+        <FontFamily x:Key="UiDisplay">pack://application:,,,/Fonts/#Tajawal, Segoe UI</FontFamily>
     </Application.Resources>
 </Application>

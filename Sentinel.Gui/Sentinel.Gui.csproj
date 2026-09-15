@@ -16,4 +16,8 @@
     <ProjectReference Include="..\Sentinel.Core\Sentinel.Core.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Resource Include="Fonts\*.ttf" />
+  </ItemGroup>
+
 </Project>

@@ -4,8 +4,8 @@
         xmlns:local="clr-namespace:Sentinel.Gui"
         Title="Sentinel" Height="840" Width="1320" MinHeight="640" MinWidth="1040"
         FlowDirection="RightToLeft" FontFamily="{StaticResource Ui}"
-        Background="{StaticResource Bg}" WindowStartupLocation="CenterScreen"
-        TextOptions.TextFormattingMode="Ideal">
+        Background="{StaticResource BgGrad}" WindowStartupLocation="CenterScreen"
+        TextOptions.TextFormattingMode="Ideal" UseLayoutRounding="True">
 
     <Window.Resources>
         <!-- Sidebar nav item -->
@@ -177,16 +177,18 @@
                 </Grid.RowDefinitions>
 
                 <!-- Brand -->
-                <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="20,22,20,26">
-                    <Border Width="34" Height="34" CornerRadius="9" Background="{StaticResource BrandDeep}"
-                            Margin="0,0,12,0">
-                        <TextBlock Text="◆" Foreground="{StaticResource Brand}" FontSize="17"
-                                   HorizontalAlignment="Center" VerticalAlignment="Center" />
+                <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="22,26,20,30">
+                    <Border Width="38" Height="38" CornerRadius="11" Background="{StaticResource BrandGrad}"
+                            Margin="0,0,13,0">
+                        <Border.Effect>
+                            <DropShadowEffect Color="#FF6A16" BlurRadius="20" ShadowDepth="0" Opacity="0.65" />
+                        </Border.Effect>
+                        <Path Data="M12,2 L21,6 V12 C21,17 17,20.5 12,22 C7,20.5 3,17 3,12 V6 Z"
+                              Stretch="Uniform" Width="19" Height="19" Fill="#1A160F"
+                              HorizontalAlignment="Center" VerticalAlignment="Center" />
                     </Border>
-                    <StackPanel VerticalAlignment="Center">
-                        <TextBlock Text="Sentinel" Foreground="{StaticResource Text}" FontSize="17" FontWeight="Bold" />
-                        <TextBlock Text="مراقبة حيّة" Foreground="{StaticResource Faint}" FontSize="11" />
-                    </StackPanel>
+                    <TextBlock Text="Sentinel" Foreground="{StaticResource Text}" FontFamily="{StaticResource UiDisplay}"
+                               FontSize="20" FontWeight="Bold" VerticalAlignment="Center" />
                 </StackPanel>
 
                 <!-- Nav -->
@@ -235,18 +237,42 @@
                     <RowDefinition Height="*" />
                 </Grid.RowDefinitions>
 
-                <!-- Hero status band with live pulse -->
-                <Border Grid.Row="0" Background="{StaticResource Card}" CornerRadius="14"
-                        BorderBrush="{StaticResource Line}" BorderThickness="1" Padding="26,22">
+                <!-- Hero: the protection dial carries the whole posture at a glance -->
+                <Border Grid.Row="0" Background="{StaticResource HeroWash}" CornerRadius="18"
+                        BorderBrush="{StaticResource Line}" BorderThickness="1" Padding="32,24">
+                    <Border.Effect>
+                        <DropShadowEffect Color="#000000" BlurRadius="28" ShadowDepth="0" Opacity="0.45" />
+                    </Border.Effect>
                     <Grid>
-                        <StackPanel HorizontalAlignment="Right" VerticalAlignment="Center">
-                            <TextBlock x:Name="HeroTitle" Text="جارٍ بدء المراقبة…"
-                                       Foreground="{StaticResource Text}" FontSize="26" FontWeight="Bold" />
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+
+                        <StackPanel Grid.Column="0" HorizontalAlignment="Right" VerticalAlignment="Center">
+                            <TextBlock Text="حالة الحماية" Foreground="{StaticResource Brand}"
+                                       FontSize="13" FontWeight="SemiBold" />
+                            <TextBlock x:Name="HeroTitle" Text="جارٍ بدء المراقبة…" FontFamily="{StaticResource UiDisplay}"
+                                       Foreground="{StaticResource Text}" FontSize="32" FontWeight="Bold" Margin="0,6,0,0" />
                             <TextBlock x:Name="HeroSub" Text="نفحص العمليات وتواقيعها وذاكرتها واتصالاتها"
-                                       Foreground="{StaticResource Muted}" FontSize="13" Margin="0,6,0,0" />
+                                       Foreground="{StaticResource Muted}" FontSize="13.5" Margin="0,7,0,0" />
                         </StackPanel>
-                        <local:Sparkline x:Name="HeroPulse" Width="260" Height="60"
-                                         HorizontalAlignment="Left" VerticalAlignment="Center" />
+
+                        <Grid Grid.Column="1" Width="188" Height="188" Margin="34,0,0,0">
+                            <local:ShieldGauge x:Name="Shield" Accent="{StaticResource Brand}"
+                                               Track="{StaticResource Line}">
+                                <local:ShieldGauge.Effect>
+                                    <DropShadowEffect Color="#FF6A16" BlurRadius="30" ShadowDepth="0" Opacity="0.45" />
+                                </local:ShieldGauge.Effect>
+                            </local:ShieldGauge>
+                            <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" FlowDirection="LeftToRight">
+                                <TextBlock x:Name="HeroScore" Text="—" FontFamily="{StaticResource UiDisplay}"
+                                           Foreground="{StaticResource Text}" FontSize="54" FontWeight="Bold"
+                                           HorizontalAlignment="Center" />
+                                <TextBlock Text="نقطة الحماية" Foreground="{StaticResource Muted}" FontSize="12"
+                                           HorizontalAlignment="Center" Margin="0,-8,0,0" />
+                            </StackPanel>
+                        </Grid>
                     </Grid>
                 </Border>
 
@@ -501,12 +527,8 @@
                     <RowDefinition Height="*" />
                 </Grid.RowDefinitions>
                 <Grid Grid.Row="0" Margin="0,0,0,16">
-                    <StackPanel HorizontalAlignment="Right">
-                        <TextBlock Text="بدء التشغيل" Foreground="{StaticResource Text}"
-                                   FontSize="20" FontWeight="Bold" />
-                        <TextBlock Text="ما يشغّله ويندوز تلقائياً عند الإقلاع — حيث تختبئ البرمجيات للبقاء"
-                                   Foreground="{StaticResource Muted}" FontSize="12.5" Margin="0,4,0,0" />
-                    </StackPanel>
+                    <TextBlock Text="بدء التشغيل" Foreground="{StaticResource Text}" HorizontalAlignment="Right"
+                               FontSize="22" FontWeight="Bold" VerticalAlignment="Center" />
                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" VerticalAlignment="Center">
                         <TextBlock x:Name="AutorunSummary" Text="" Foreground="{StaticResource Muted}"
                                    FontSize="12.5" VerticalAlignment="Center" Margin="0,0,14,0" />
