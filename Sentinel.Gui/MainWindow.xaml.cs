@@ -20,7 +20,11 @@ public partial class MainWindow : Window
 
     private readonly IntelSettings _settings = IntelSettings.Load();
     private ThreatIntel _intel = null!;
+    private ReputationService _reputation = null!;
     private bool _loadingSettings;
+
+    private readonly HashSet<int> _alerted = [];
+    private readonly DispatcherTimer _toastTimer = new() { Interval = TimeSpan.FromSeconds(9) };
 
     private ListCollectionView _threatsView = null!;
     private ListCollectionView _netView = null!;
@@ -43,10 +47,13 @@ public partial class MainWindow : Window
         NetBigGraph.Stroke = Res("NetIn"); NetBigGraph.Fill = Res("NetFill");
 
         _intel = new ThreatIntel(_settings);
+        _reputation = new ReputationService(_intel, Dispatcher, OnFlaggedByReputation);
+        _toastTimer.Tick += (_, _) => HideToast();
         LoadSettingsUi();
 
         ShowPage("overview");
         Loaded += (_, _) => { Tick(); _timer.Tick += (_, _) => Tick(); _timer.Start(); };
+        Closed += (_, _) => { _reputation.Dispose(); _intel.Dispose(); };
     }
 
     // ---------------- settings ----------------
@@ -77,8 +84,7 @@ public partial class MainWindow : Window
         fresh.Show();
         fresh.NavSettings.IsChecked = true;
         _timer.Stop();
-        _intel.Dispose();
-        Close();
+        Close(); // the Closed handler disposes intel + reputation
     }
 
     private void OnPrefChanged(object sender, RoutedEventArgs e)
@@ -254,18 +260,23 @@ public partial class MainWindow : Window
             else if (p.Verdict == Verdict.Review) review++;
             if (p.IsHidden) hidden++;
 
-            if (_byPid.TryGetValue(p.Pid, out var row))
+            LiveRow row;
+            if (_byPid.TryGetValue(p.Pid, out var existing))
             {
-                row.Update(p);
-                row.TickHighlight();
+                existing.Update(p);
+                existing.TickHighlight();
+                row = existing;
             }
             else
             {
-                var fresh = new LiveRow(p);
-                fresh.MarkNew();
-                _byPid[p.Pid] = fresh;
-                _rows.Add(fresh);
+                row = new LiveRow(p);
+                row.MarkNew();
+                _byPid[p.Pid] = row;
+                _rows.Add(row);
+                if (row.IsFlagged) AlertVerdict(row);
             }
+
+            if (!row.HasReputation) _reputation.Enqueue(row);
         }
 
         for (int i = _rows.Count - 1; i >= 0; i--)
@@ -422,6 +433,62 @@ public partial class MainWindow : Window
         view.Filter = q.Length == 0 ? null : o =>
             o is LiveRow r &&
             (r.Name.Contains(q, StringComparison.OrdinalIgnoreCase) || r.Pid.ToString().Contains(q));
+    }
+
+    // ---------------- instant alerts ----------------
+
+    private void OnFlaggedByReputation(LiveRow row, ThreatLevel level)
+    {
+        if (!_settings.Notifications) return;
+        if (!_alerted.Add(row.Pid)) return;
+
+        var (title, accent) = level == ThreatLevel.Malicious
+            ? ($"عملية خبيثة: {row.Name}", Res("Red"))
+            : ($"عملية مشبوهة: {row.Name}", Res("Amber"));
+        ShowAlert(title, "طابقت قاعدة تهديدات عالمية. افتح صفحة التهديدات للمراجعة.", accent);
+    }
+
+    private void AlertVerdict(LiveRow row)
+    {
+        if (!_settings.Notifications) return;
+        if (row.Verdict != Verdict.Suspicious) return; // only the serious ones pop up
+        if (!_alerted.Add(row.Pid)) return;
+
+        var reason = string.IsNullOrEmpty(row.Reasons) ? "ظهرت عملية مشبوهة." : row.Reasons;
+        ShowAlert($"عملية مشبوهة: {row.Name}", reason, Res("Red"));
+    }
+
+    private void ShowAlert(string title, string detail, Brush accent)
+    {
+        ToastTitle.Text = title;
+        ToastDetail.Text = detail;
+        ToastBar.Background = accent;
+        Toast.Visibility = Visibility.Visible;
+
+        var fade = new System.Windows.Media.Animation.DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(220));
+        var slide = new System.Windows.Media.Animation.DoubleAnimation(-30, 0, TimeSpan.FromMilliseconds(260))
+        { EasingFunction = new System.Windows.Media.Animation.CubicEase() };
+        Toast.BeginAnimation(OpacityProperty, fade);
+        ToastShift.BeginAnimation(TranslateTransform.XProperty, slide);
+
+        _toastTimer.Stop();
+        _toastTimer.Start();
+    }
+
+    private void HideToast()
+    {
+        _toastTimer.Stop();
+        var fade = new System.Windows.Media.Animation.DoubleAnimation(Toast.Opacity, 0, TimeSpan.FromMilliseconds(220));
+        fade.Completed += (_, _) => Toast.Visibility = Visibility.Collapsed;
+        Toast.BeginAnimation(OpacityProperty, fade);
+    }
+
+    private void OnToastDismiss(object sender, RoutedEventArgs e) => HideToast();
+
+    private void OnToastReview(object sender, RoutedEventArgs e)
+    {
+        NavThreats.IsChecked = true;
+        HideToast();
     }
 
     private static Brush Res(string key) => (Brush)App.Current.Resources[key];

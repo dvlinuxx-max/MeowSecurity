@@ -1,6 +1,7 @@
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using System.Windows.Media;
+using Sentinel.Core.Intel;
 using Sentinel.Core.Live;
 using Sentinel.Core.Processes;
 
@@ -79,6 +80,47 @@ public sealed class LiveRow : INotifyPropertyChanged
     }
 
     public bool IsFlagged => _verdict != Verdict.Safe;
+
+    // ---- reputation (filled asynchronously from the threat-intel sources) ----
+
+    private ThreatLevel _rep = ThreatLevel.Unknown;
+    public ThreatLevel Reputation => _rep;
+    public bool HasReputation => _rep != ThreatLevel.Unknown;
+
+    public void SetReputation(ThreatLevel level)
+    {
+        if (_rep == level) return;
+        _rep = level;
+        Notify(nameof(Reputation));
+        Notify(nameof(RepText));
+        Notify(nameof(RepAccent));
+        Notify(nameof(RepTint));
+        Notify(nameof(HasReputation));
+    }
+
+    public string RepText => _rep switch
+    {
+        ThreatLevel.Malicious => "خبيث",
+        ThreatLevel.Suspicious => "مشبوه",
+        ThreatLevel.KnownGood => "موثوق",
+        _ => "",
+    };
+
+    public Brush RepAccent => _rep switch
+    {
+        ThreatLevel.Malicious => Res("Red"),
+        ThreatLevel.Suspicious => Res("Amber"),
+        ThreatLevel.KnownGood => Res("Green"),
+        _ => Res("Faint"),
+    };
+
+    public Brush RepTint => _rep switch
+    {
+        ThreatLevel.Malicious => Res("RedTint"),
+        ThreatLevel.Suspicious => Res("AmberTint"),
+        ThreatLevel.KnownGood => Res("GreenTint"),
+        _ => Brushes.Transparent,
+    };
 
     public string VerdictText => _verdict switch
     {

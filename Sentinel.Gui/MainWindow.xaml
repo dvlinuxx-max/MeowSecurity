@@ -502,6 +502,17 @@
                                     </Style>
                                 </DataGridTextColumn.ElementStyle>
                             </DataGridTextColumn>
+                            <DataGridTemplateColumn Header="السمعة" Width="80" SortMemberPath="Reputation">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <Border Background="{Binding RepTint}" CornerRadius="5" Padding="9,2"
+                                                HorizontalAlignment="Right" Margin="4,0">
+                                            <TextBlock Text="{Binding RepText}" Foreground="{Binding RepAccent}"
+                                                       FontWeight="Bold" FontSize="11.5" />
+                                        </Border>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
                             <DataGridTextColumn Header="PID" Binding="{Binding Pid}" Width="60" SortMemberPath="Pid" />
                             <DataGridTextColumn Header="المعالج" Binding="{Binding Cpu}" Width="70" SortMemberPath="CpuValue">
                                 <DataGridTextColumn.ElementStyle>
@@ -799,6 +810,36 @@
                     </StackPanel>
                 </ScrollViewer>
             </Grid>
+
+            <!-- Instant alert (toast) -->
+            <Border x:Name="Toast" Visibility="Collapsed" VerticalAlignment="Top" HorizontalAlignment="Left"
+                    Margin="28,20,0,0" MinWidth="360" MaxWidth="460" CornerRadius="12" Panel.ZIndex="100"
+                    Background="{StaticResource Panel}" BorderBrush="{StaticResource Line}" BorderThickness="1"
+                    RenderTransformOrigin="0.5,0.5">
+                <Border.RenderTransform>
+                    <TranslateTransform x:Name="ToastShift" X="-30" />
+                </Border.RenderTransform>
+                <Border.Effect>
+                    <DropShadowEffect Color="#000000" BlurRadius="26" ShadowDepth="0" Opacity="0.55" />
+                </Border.Effect>
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="4" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <Border x:Name="ToastBar" Grid.Column="0" Background="{StaticResource Red}" CornerRadius="0,12,12,0" />
+                    <StackPanel Grid.Column="1" Margin="16,13">
+                        <TextBlock x:Name="ToastTitle" Foreground="{StaticResource Text}" FontWeight="Bold"
+                                   FontSize="14.5" HorizontalAlignment="Right" />
+                        <TextBlock x:Name="ToastDetail" Foreground="{StaticResource Muted}" FontSize="12.5"
+                                   TextWrapping="Wrap" HorizontalAlignment="Right" Margin="0,5,0,0" />
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" Margin="0,12,0,0">
+                            <Button Content="مراجعة" Style="{StaticResource Ghost}" Click="OnToastReview" />
+                            <Button Content="إخفاء" Style="{StaticResource Ghost}" Click="OnToastDismiss" Margin="8,0,0,0" />
+                        </StackPanel>
+                    </StackPanel>
+                </Grid>
+            </Border>
         </Grid>
     </Grid>
 </Window>
