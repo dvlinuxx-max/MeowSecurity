@@ -26,9 +26,15 @@ public sealed record ScanReport
     public string Source { get; init; } = "VirusTotal";
     public DateTime AsOfUtc { get; init; } = DateTime.UtcNow;
 
+    // Populated for IP checks (AbuseIPDB): confidence 0-100, plus context.
+    public int AbuseScore { get; init; }
+    public int Reports { get; init; }
+    public string? Country { get; init; }
+    public string? Isp { get; init; }
+
     /// <summary>Set when the scan could not run (no key, quota exhausted, network) — surfaced to the user verbatim.</summary>
     public string? Error { get; init; }
     public bool Ok => Error is null;
 }
 
-public enum ScanKind { File, Url }
+public enum ScanKind { File, Url, Ip }

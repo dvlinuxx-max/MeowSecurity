@@ -21,6 +21,7 @@ public sealed class IntelSettings
 {
     public string? VirusTotalApiKey { get; set; }
     public string? AbuseChApiKey { get; set; }
+    public string? AbuseIpdbApiKey { get; set; }
 
     /// <summary>Master switch for any outbound reputation lookup. Off means fully offline.</summary>
     public bool OnlineLookupsEnabled { get; set; } = true;
@@ -37,7 +38,14 @@ public sealed class IntelSettings
         FirstNonEmpty(AbuseChApiKey, Environment.GetEnvironmentVariable("SENTINEL_ABUSECH_KEY"));
 
     [JsonIgnore]
+    public string? EffectiveAbuseIpdbKey =>
+        FirstNonEmpty(AbuseIpdbApiKey, Environment.GetEnvironmentVariable("SENTINEL_ABUSEIPDB_KEY"));
+
+    [JsonIgnore]
     public bool HasVirusTotal => VirusTotalEnabled && !string.IsNullOrWhiteSpace(EffectiveVirusTotalKey);
+
+    [JsonIgnore]
+    public bool HasAbuseIpdb => !string.IsNullOrWhiteSpace(EffectiveAbuseIpdbKey);
 
     // ---- persistence ----
 

@@ -28,6 +28,7 @@ public sealed class ThreatIntel : IDisposable
     private readonly CirclHashlookup _circl;
     private readonly MalwareBazaarClient _bazaar;
     private readonly VirusTotalClient? _vt;
+    private readonly AbuseIpdbClient? _abuseIpdb;
 
     public ThreatIntel(IntelSettings? settings = null)
     {
@@ -40,10 +41,13 @@ public sealed class ThreatIntel : IDisposable
         _bazaar = new MalwareBazaarClient(_http, _settings.EffectiveAbuseChKey);
         if (_settings.HasVirusTotal)
             _vt = new VirusTotalClient(_http, _settings.EffectiveVirusTotalKey!);
+        if (_settings.HasAbuseIpdb)
+            _abuseIpdb = new AbuseIpdbClient(_http, _settings.EffectiveAbuseIpdbKey!);
     }
 
     public IntelSettings Settings => _settings;
     public bool VirusTotalReady => _vt is not null;
+    public bool AbuseIpdbReady => _abuseIpdb is not null;
 
     /// <summary>Reputation for a file already identified by hash.</summary>
     public async Task<HashReputation> LookupHashAsync(string sha256, CancellationToken ct = default)
@@ -103,11 +107,46 @@ public sealed class ThreatIntel : IDisposable
             ? Task.FromResult(NoVt(url, ScanKind.Url))
             : _vt.ScanUrlAsync(url, ct);
 
+    public bool CanCheckIp => _abuseIpdb is not null;
+
+    public Task<ScanReport> CheckIpAsync(string ip, CancellationToken ct = default) =>
+        _abuseIpdb is null
+            ? Task.FromResult(new ScanReport { Target = ip, Kind = ScanKind.Ip, Error = "أضف مفتاح AbuseIPDB في الإعدادات لفحص عناوين IP." })
+            : _abuseIpdb.CheckAsync(ip, ct);
+
+    /// <summary>
+    /// One box, three targets: routes an IP to AbuseIPDB, a URL/domain to VirusTotal,
+    /// and an existing file path to a VirusTotal file scan.
+    /// </summary>
+    public Task<ScanReport> AdvancedScanAsync(string input, CancellationToken ct = default)
+    {
+        var text = (input ?? "").Trim();
+        if (text.Length == 0)
+            return Task.FromResult(new ScanReport { Target = text, Kind = ScanKind.Url, Error = "أدخل رابطاً أو عنوان IP أو مساراً لملف." });
+
+        if (System.Net.IPAddress.TryParse(text, out _))
+            return CheckIpAsync(text, ct);
+
+        if (System.IO.File.Exists(text))
+            return ScanFileAsync(text, ct);
+
+        // Treat anything with a dot and no spaces as a URL/domain; prefix scheme if missing.
+        if (!text.Contains(' ') && text.Contains('.'))
+        {
+            if (!text.StartsWith("http://", StringComparison.OrdinalIgnoreCase) &&
+                !text.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+                text = "http://" + text;
+            return ScanUrlAsync(text, ct);
+        }
+
+        return Task.FromResult(new ScanReport { Target = text, Kind = ScanKind.Url, Error = "لم أتعرّف على المدخل — أدخل رابطاً أو IP أو مسار ملف." });
+    }
+
     private static ScanReport NoVt(string target, ScanKind kind) => new()
     {
         Target = target,
         Kind = kind,
-        Error = "Add your VirusTotal API key in Settings to run this scan.",
+        Error = "أضف مفتاح VirusTotal في الإعدادات لتشغيل هذا الفحص.",
     };
 
     private static HashReputation Merge(string sha256, List<HashReputation> reps)

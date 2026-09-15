@@ -67,6 +67,21 @@ if (Idx("--scan-url") is var ui and >= 0 && ui + 1 < args.Length)
     return;
 }
 
+if (Idx("--check-ip") is var ipi and >= 0 && ipi + 1 < args.Length)
+{
+    using var intel = new ThreatIntel();
+    PrintScan(await intel.CheckIpAsync(args[ipi + 1]));
+    return;
+}
+
+if (Idx("--scan") is var sc and >= 0 && sc + 1 < args.Length)
+{
+    using var intel = new ThreatIntel();
+    Console.WriteLine("Advanced scan (auto-detect IP / URL / file) ...");
+    PrintScan(await intel.AdvancedScanAsync(args[sc + 1]));
+    return;
+}
+
 static void PrintRep(HashReputation r)
 {
     Console.WriteLine(new string('-', 40));
