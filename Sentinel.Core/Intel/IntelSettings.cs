@@ -29,6 +29,20 @@ public sealed class IntelSettings
     /// <summary>Allow sending file hashes to VirusTotal (only hashes, never file contents, unless the user explicitly uploads).</summary>
     public bool VirusTotalEnabled { get; set; } = false;
 
+    // ---- interface preferences (persisted in the same file) ----
+
+    /// <summary>"dark" or "light".</summary>
+    public string Theme { get; set; } = "dark";
+
+    /// <summary>Show a pop-up when a suspicious or malicious process appears.</summary>
+    public bool Notifications { get; set; } = true;
+
+    /// <summary>Keep monitoring from the tray after the window is closed.</summary>
+    public bool RunInBackground { get; set; } = false;
+
+    /// <summary>Watch device health (CPU, memory, disk pressure) and flag sustained strain.</summary>
+    public bool HealthMonitoring { get; set; } = true;
+
     [JsonIgnore]
     public string? EffectiveVirusTotalKey =>
         FirstNonEmpty(VirusTotalApiKey, Environment.GetEnvironmentVariable("SENTINEL_VT_KEY"));

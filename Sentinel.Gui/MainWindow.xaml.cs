@@ -4,6 +4,7 @@ using System.Windows.Controls;
 using System.Windows.Data;
 using System.Windows.Media;
 using System.Windows.Threading;
+using Sentinel.Core.Intel;
 using Sentinel.Core.Live;
 using Sentinel.Core.Processes;
 
@@ -16,6 +17,10 @@ public partial class MainWindow : Window
     private readonly LiveSampler _sampler = new();
     private readonly LiveEnricher _enricher = new();
     private readonly DispatcherTimer _timer = new() { Interval = TimeSpan.FromSeconds(1) };
+
+    private readonly IntelSettings _settings = IntelSettings.Load();
+    private ThreatIntel _intel = null!;
+    private bool _loadingSettings;
 
     private ListCollectionView _threatsView = null!;
     private ListCollectionView _netView = null!;
@@ -37,8 +42,135 @@ public partial class MainWindow : Window
         NetSpark.Stroke = Res("NetIn"); NetSpark.Fill = Res("NetFill");
         NetBigGraph.Stroke = Res("NetIn"); NetBigGraph.Fill = Res("NetFill");
 
+        _intel = new ThreatIntel(_settings);
+        LoadSettingsUi();
+
         ShowPage("overview");
         Loaded += (_, _) => { Tick(); _timer.Tick += (_, _) => Tick(); _timer.Start(); };
+    }
+
+    // ---------------- settings ----------------
+
+    private void LoadSettingsUi()
+    {
+        _loadingSettings = true;
+        ChkLight.IsChecked = string.Equals(_settings.Theme, "light", StringComparison.OrdinalIgnoreCase);
+        ChkNotify.IsChecked = _settings.Notifications;
+        ChkBackground.IsChecked = _settings.RunInBackground;
+        ChkHealth.IsChecked = _settings.HealthMonitoring;
+        if (!string.IsNullOrEmpty(_settings.VirusTotalApiKey)) KeyVt.Password = _settings.VirusTotalApiKey;
+        if (!string.IsNullOrEmpty(_settings.AbuseIpdbApiKey)) KeyAbuseIpdb.Password = _settings.AbuseIpdbApiKey;
+        if (!string.IsNullOrEmpty(_settings.AbuseChApiKey)) KeyAbuseCh.Password = _settings.AbuseChApiKey;
+        _loadingSettings = false;
+    }
+
+    private void OnThemeToggle(object sender, RoutedEventArgs e)
+    {
+        if (_loadingSettings) return;
+        _settings.Theme = ChkLight.IsChecked == true ? "light" : "dark";
+        _settings.Save();
+
+        // Re-colour the palette and rebuild the window so every StaticResource picks up
+        // the new theme (WPF freezes resource brushes, so they can't be recoloured in place).
+        ThemeManager.Apply(_settings.Theme);
+        var fresh = new MainWindow();
+        fresh.Show();
+        fresh.NavSettings.IsChecked = true;
+        _timer.Stop();
+        _intel.Dispose();
+        Close();
+    }
+
+    private void OnPrefChanged(object sender, RoutedEventArgs e)
+    {
+        if (_loadingSettings) return;
+        _settings.Notifications = ChkNotify.IsChecked == true;
+        _settings.RunInBackground = ChkBackground.IsChecked == true;
+        _settings.HealthMonitoring = ChkHealth.IsChecked == true;
+        _settings.Save();
+    }
+
+    private void OnSaveKeys(object sender, RoutedEventArgs e)
+    {
+        _settings.VirusTotalApiKey = Nz(KeyVt.Password);
+        _settings.AbuseIpdbApiKey = Nz(KeyAbuseIpdb.Password);
+        _settings.AbuseChApiKey = Nz(KeyAbuseCh.Password);
+        _settings.VirusTotalEnabled = !string.IsNullOrWhiteSpace(_settings.VirusTotalApiKey);
+        _settings.Save();
+
+        _intel.Dispose();
+        _intel = new ThreatIntel(_settings);
+        KeysStatus.Text = "تم الحفظ ✓";
+    }
+
+    private static string? Nz(string s) => string.IsNullOrWhiteSpace(s) ? null : s.Trim();
+
+    // ---------------- advanced scan ----------------
+
+    private string? _scanLink;
+
+    private void OnScanInputChanged(object sender, RoutedEventArgs e) =>
+        ScanHint.Visibility = string.IsNullOrEmpty(ScanInput.Text) ? Visibility.Visible : Visibility.Collapsed;
+
+    private void OnScanInputKey(object sender, System.Windows.Input.KeyEventArgs e)
+    {
+        if (e.Key == System.Windows.Input.Key.Enter) OnAdvancedScan(sender, e);
+    }
+
+    private async void OnAdvancedScan(object sender, RoutedEventArgs e)
+    {
+        var input = ScanInput.Text?.Trim();
+        if (string.IsNullOrEmpty(input)) return;
+
+        ScanBtn.IsEnabled = false;
+        ShowScanResult(ThreatLevel.Unknown, "جارٍ الفحص…", input, "قد يستغرق حتى دقيقة للروابط الجديدة.", null);
+
+        ScanReport r;
+        try { r = await _intel.AdvancedScanAsync(input); }
+        catch (Exception ex) { r = new ScanReport { Target = input, Error = ex.Message }; }
+
+        ScanBtn.IsEnabled = true;
+        if (!r.Ok) { ShowScanResult(ThreatLevel.Suspicious, "تعذّر الفحص", input, r.Error!, null); return; }
+
+        string verdict = r.Level switch
+        {
+            ThreatLevel.Malicious => "خبيث",
+            ThreatLevel.Suspicious => "مشبوه",
+            ThreatLevel.KnownGood => "نظيف",
+            _ => "غير معروف",
+        };
+        ShowScanResult(r.Level, verdict, r.Target, r.Detail ?? "", r.Permalink);
+    }
+
+    private void ShowScanResult(ThreatLevel level, string verdict, string target, string detail, string? link)
+    {
+        var (accent, tint) = level switch
+        {
+            ThreatLevel.Malicious => (Res("Red"), Res("RedTint")),
+            ThreatLevel.Suspicious => (Res("Amber"), Res("AmberTint")),
+            ThreatLevel.KnownGood => (Res("Green"), Res("GreenTint")),
+            _ => (Res("Muted"), Res("CardAlt")),
+        };
+        ScanResult.Tag = tint;
+        ScanDot.Fill = accent;
+        ScanVerdict.Text = verdict;
+        ScanVerdict.Foreground = accent;
+        ScanTarget.Text = target;
+        ScanDetail.Text = detail;
+        _scanLink = link;
+        ScanLink.Text = link is null ? "" : "عرض التقرير الكامل ↗";
+        ScanLink.Visibility = link is null ? Visibility.Collapsed : Visibility.Visible;
+        ScanResult.Visibility = Visibility.Visible;
+    }
+
+    private void OnScanLinkClick(object sender, System.Windows.Input.MouseButtonEventArgs e)
+    {
+        if (string.IsNullOrEmpty(_scanLink)) return;
+        try
+        {
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(_scanLink) { UseShellExecute = true });
+        }
+        catch { /* no browser or blocked */ }
     }
 
     // ---------------- navigation ----------------
@@ -57,6 +189,7 @@ public partial class MainWindow : Window
         PageNetwork.Visibility = tag == "network" ? Visibility.Visible : Visibility.Collapsed;
         PageAutoruns.Visibility = tag == "autoruns" ? Visibility.Visible : Visibility.Collapsed;
         PageThreats.Visibility = tag == "threats" ? Visibility.Visible : Visibility.Collapsed;
+        PageSettings.Visibility = tag == "settings" ? Visibility.Visible : Visibility.Collapsed;
 
         // First time the autoruns page is opened, scan automatically.
         if (tag == "autoruns" && !_autorunsScanned) ScanAutoruns();
