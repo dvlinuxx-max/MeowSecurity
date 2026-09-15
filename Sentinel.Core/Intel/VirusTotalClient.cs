@@ -144,11 +144,13 @@ public sealed class VirusTotalClient
 
     private async Task<ScanReport> PollAnalysis(string target, ScanKind kind, string analysisId, string permalink, CancellationToken ct)
     {
-        for (var attempt = 0; attempt < 20; attempt++)
+        for (var attempt = 0; attempt < 8; attempt++)
         {
             await Task.Delay(TimeSpan.FromSeconds(attempt == 0 ? 3 : 6), ct).ConfigureAwait(false);
-            if (!await _limiter.AcquireAsync(TimeSpan.FromSeconds(20), ct).ConfigureAwait(false))
-                return Fail(target, kind, "VirusTotal quota reached while waiting for results.");
+            // Wait out a full rate-limit window if needed: on the free tier (4/min) the
+            // submit already spent slots, so a poll may legitimately need to wait ~a minute.
+            if (!await _limiter.AcquireAsync(TimeSpan.FromSeconds(75), ct).ConfigureAwait(false))
+                return Fail(target, kind, "VirusTotal daily quota reached — try again later.");
 
             using var req = Build(HttpMethod.Get, "analyses/" + analysisId);
             using var resp = await _http.SendAsync(req, ct).ConfigureAwait(false);
@@ -158,9 +160,12 @@ public sealed class VirusTotalClient
             using var doc = await JsonDocument.ParseAsync(stream, cancellationToken: ct).ConfigureAwait(false);
             var attrs = doc.RootElement.GetProperty("data").GetProperty("attributes");
             var status = attrs.TryGetProperty("status", out var st) ? st.GetString() : null;
-            if (status != "completed") continue;
 
             var (mal, susp, harm, undet, _) = ReadStatsFromAttributes(attrs);
+            // On the free tier a URL analysis often lingers at "in-progress" forever while
+            // the engines that matter have already reported. Accept the verdict as soon as
+            // engines have weighed in, rather than waiting for a "completed" that never comes.
+            if (status != "completed" && mal + susp + harm + undet == 0) continue;
             var level = mal > 0 ? ThreatLevel.Malicious
                       : susp > 0 ? ThreatLevel.Suspicious
                       : ThreatLevel.KnownGood;
