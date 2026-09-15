@@ -1,8 +1,19 @@
 using System.Security.Principal;
 using System.Text;
+using Sentinel.Core.Persistence;
 using Sentinel.Core.Processes;
 
 Console.OutputEncoding = Encoding.UTF8;
+
+if (args.Contains("--autoruns"))
+{
+    var ar = new AutorunScanner().Scan();
+    Console.WriteLine($"Autoruns — {ar.Count} entries\n" + new string('-', 78));
+    foreach (var e in ar.OrderByDescending(x => (int)x.Verdict))
+        Console.WriteLine($"  [{e.Verdict,-10}] {e.Location,-16} {e.Name,-28} {e.Reason}\n" +
+                          $"               {e.ImagePath}");
+    return;
+}
 
 // Optional plain-text mirror of the report, so an elevated launch can hand results back.
 string? outPath = null;
