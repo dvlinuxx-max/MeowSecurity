@@ -37,7 +37,26 @@ if (args.Contains("--watch"))
 
     int seconds = Idx("--watch") + 1 < args.Length && int.TryParse(args[Idx("--watch") + 1], out int s) ? s : 20;
     Console.WriteLine($"Watching process starts for {seconds}s (kernel ETW)\n" + new string('-', 78));
-    Thread.Sleep(seconds * 1000);
+
+    // Per-process throughput, printed each second: the same counters the network page reads.
+    for (int elapsed = 0; elapsed < seconds; elapsed++)
+    {
+        Thread.Sleep(1000);
+        var totals = watcher.TakeNetworkTotals();
+        var busiest = totals.OrderByDescending(t => t.Value.In + t.Value.Out).Take(4).ToList();
+        if (busiest.Count == 0) continue;
+
+        Console.WriteLine($"  [{elapsed + 1,2}s] network:");
+        foreach (var (pid, bytes) in busiest)
+        {
+            string name;
+            try { using var proc = System.Diagnostics.Process.GetProcessById(pid); name = proc.ProcessName; }
+            catch { name = "?"; }
+            Console.WriteLine($"         {name,-22} pid {pid,-6} down {Kb(bytes.In),9}  up {Kb(bytes.Out),9}");
+        }
+    }
+
+    static string Kb(long b) => b >= 1024 * 1024 ? $"{b / 1024.0 / 1024:0.0} MB/s" : $"{b / 1024.0:0.0} KB/s";
     Console.WriteLine($"payload fields: {watcher.PayloadFields ?? "(no start event seen)"}");
     Console.WriteLine("done.");
     return;

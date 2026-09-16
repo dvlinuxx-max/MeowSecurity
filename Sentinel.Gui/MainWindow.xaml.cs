@@ -41,6 +41,7 @@ public partial class MainWindow : Window
     private ListCollectionView _threatsView = null!;
     private ListCollectionView _netView = null!;
 
+    private DateTime _lastNetRead = DateTime.UtcNow;
     private double _netMax = 64 * 1024;
     private bool _paused;
 
@@ -53,7 +54,9 @@ public partial class MainWindow : Window
         Grid.ItemsSource = _rows;
         LoadEventHistory();
         _threatsView = new ListCollectionView(_rows) { Filter = o => o is LiveRow r && r.IsFlagged };
-        _netView = new ListCollectionView(_rows) { Filter = o => o is LiveRow r && r.RemoteConns > 0 };
+        // A process moving bytes belongs on this page even if its connection is already gone.
+        _netView = new ListCollectionView(_rows)
+        { Filter = o => o is LiveRow r && (r.RemoteConns > 0 || r.NetTotal > 0) };
         ThreatGrid.ItemsSource = _threatsView;
         AttentionList.ItemsSource = _threatsView;
         NetGrid.ItemsSource = _netView;
@@ -808,6 +811,22 @@ public partial class MainWindow : Window
 
         var sample = _sampler.Sample(out var pulse);
         _enricher.Overlay(sample);
+
+        // Per-process throughput, if the live capture is running. Windows keeps no such
+        // counter, so these are the kernel's own packets added up since the last tick.
+        if (_etw.State == Sentinel.Core.Etw.EtwState.Running)
+        {
+            var byPid = _etw.TakeNetworkTotals();
+            double seconds = Math.Max(0.25, (DateTime.UtcNow - _lastNetRead).TotalSeconds);
+            _lastNetRead = DateTime.UtcNow;
+
+            foreach (var p in sample)
+            {
+                if (!byPid.TryGetValue(p.Pid, out var bytes)) continue;
+                p.NetInBytesPerSec = (long)(bytes.In / seconds);
+                p.NetOutBytesPerSec = (long)(bytes.Out / seconds);
+            }
+        }
 
         var seen = new HashSet<int>(sample.Count);
         int suspicious = 0, review = 0, hidden = 0;

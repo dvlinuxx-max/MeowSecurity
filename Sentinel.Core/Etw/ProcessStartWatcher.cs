@@ -62,6 +62,41 @@ public sealed class ProcessStartWatcher : IDisposable
     private readonly Dictionary<int, string> _names = [];
     private readonly object _namesLock = new();
 
+    /// <summary>
+    /// Bytes counted per process since the last read: [0] received, [1] sent.
+    ///
+    /// Windows offers no per-process byte counter — Task Manager's own network column is
+    /// machine-wide — so the only way to answer "which program is uploading my files" is to
+    /// add up the kernel's individual send and receive events. They arrive on the ETW thread
+    /// in large numbers, hence plain interlocked adds into a fixed pair rather than anything
+    /// that allocates.
+    /// </summary>
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<int, long[]> _bytes = new();
+
+    private void CountBytes(int pid, int size, bool incoming)
+    {
+        if (pid <= 0 || size <= 0) return;
+        var pair = _bytes.GetOrAdd(pid, static _ => new long[2]);
+        Interlocked.Add(ref pair[incoming ? 0 : 1], size);
+    }
+
+    /// <summary>
+    /// Takes everything counted since the previous call and resets, so the caller divides by
+    /// its own tick length to get a rate. Reading and clearing in one step is what keeps the
+    /// arithmetic honest when a tick runs late.
+    /// </summary>
+    public Dictionary<int, (long In, long Out)> TakeNetworkTotals()
+    {
+        var totals = new Dictionary<int, (long, long)>(_bytes.Count);
+        foreach (var (pid, pair) in _bytes)
+        {
+            long inBytes = Interlocked.Exchange(ref pair[0], 0);
+            long outBytes = Interlocked.Exchange(ref pair[1], 0);
+            if (inBytes != 0 || outBytes != 0) totals[pid] = (inBytes, outBytes);
+        }
+        return totals;
+    }
+
     public bool Start()
     {
         if (State == EtwState.Running) return true;
@@ -85,13 +120,26 @@ public sealed class ProcessStartWatcher : IDisposable
             // this build the manifest's ProcessStart carries no image name and no command
             // line, while the kernel's does — captured at creation, so it survives a process
             // that exits before anyone can ask it anything.
-            _session.EnableKernelProvider(KernelTraceEventParser.Keywords.Process);
+            _session.EnableKernelProvider(
+                KernelTraceEventParser.Keywords.Process |
+                KernelTraceEventParser.Keywords.NetworkTCPIP);
 
             _session.Source.Kernel.ProcessStart += OnProcessStart;
             _session.Source.Kernel.ProcessStop += d =>
             {
                 lock (_namesLock) _names.Remove(d.ProcessID);
+                _bytes.TryRemove(d.ProcessID, out _);
             };
+
+            // Per-process throughput, counted from the individual packets the kernel reports.
+            _session.Source.Kernel.TcpIpRecv += d => CountBytes(d.ProcessID, d.size, incoming: true);
+            _session.Source.Kernel.TcpIpSend += d => CountBytes(d.ProcessID, d.size, incoming: false);
+            _session.Source.Kernel.UdpIpRecv += d => CountBytes(d.ProcessID, d.size, incoming: true);
+            _session.Source.Kernel.UdpIpSend += d => CountBytes(d.ProcessID, d.size, incoming: false);
+            _session.Source.Kernel.TcpIpRecvIPV6 += d => CountBytes(d.ProcessID, d.size, incoming: true);
+            _session.Source.Kernel.TcpIpSendIPV6 += d => CountBytes(d.ProcessID, d.size, incoming: false);
+            _session.Source.Kernel.UdpIpRecvIPV6 += d => CountBytes(d.ProcessID, d.size, incoming: true);
+            _session.Source.Kernel.UdpIpSendIPV6 += d => CountBytes(d.ProcessID, d.size, incoming: false);
 
             _pump = new Thread(Pump)
             {

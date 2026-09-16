@@ -652,6 +652,24 @@
                                 </DataGridTextColumn.ElementStyle>
                             </DataGridTextColumn>
                             <DataGridTextColumn Header="PID" Binding="{Binding Pid}" Width="66" />
+                            <DataGridTextColumn Header="تنزيل" Binding="{Binding NetDown}" Width="100"
+                                                SortMemberPath="NetTotal">
+                                <DataGridTextColumn.ElementStyle>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="Foreground" Value="{StaticResource NetIn}" />
+                                        <Setter Property="VerticalAlignment" Value="Center" />
+                                    </Style>
+                                </DataGridTextColumn.ElementStyle>
+                            </DataGridTextColumn>
+                            <DataGridTextColumn Header="رفع" Binding="{Binding NetUp}" Width="100"
+                                                SortMemberPath="NetTotal">
+                                <DataGridTextColumn.ElementStyle>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="Foreground" Value="{StaticResource NetOut}" />
+                                        <Setter Property="VerticalAlignment" Value="Center" />
+                                    </Style>
+                                </DataGridTextColumn.ElementStyle>
+                            </DataGridTextColumn>
                             <DataGridTextColumn Header="الاتصالات" Binding="{Binding Network}" Width="120" SortMemberPath="RemoteConns" />
                             <DataGridTextColumn Header="التوقيع" Binding="{Binding Signature}" Width="100" />
                             <DataGridTextColumn Header="الناشر" Binding="{Binding Publisher}" Width="*" />

@@ -41,6 +41,11 @@ public sealed class LiveProcess
     public Verdict Verdict { get; set; }
     public int Connections { get; set; }
     public int RemoteConnections { get; set; }
+
+    /// <summary>Bytes per second in and out, counted from kernel network events. Zero when
+    /// the live capture is not running — Windows exposes no per-process byte counter.</summary>
+    public long NetInBytesPerSec { get; set; }
+    public long NetOutBytesPerSec { get; set; }
     public bool HasImplantedPe { get; set; }
     public bool IsHidden { get; set; }
     public IReadOnlyList<string> Reasons { get; set; } = [];

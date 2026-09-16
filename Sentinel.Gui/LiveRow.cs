@@ -36,6 +36,9 @@ public sealed class LiveRow : INotifyPropertyChanged
     private long _ioValue;
     private string _network = "";
     private int _remoteConns;
+    private string _netDown = "";
+    private string _netUp = "";
+    private long _netTotal;
     private string _signature = "";
     private string _publisher = "";
     private string _reasons = "";
@@ -54,6 +57,12 @@ public sealed class LiveRow : INotifyPropertyChanged
     public long IoValue { get => _ioValue; private set => Set(ref _ioValue, value); }
     public string Network { get => _network; private set => Set(ref _network, value); }
     public int RemoteConns { get => _remoteConns; private set => Set(ref _remoteConns, value); }
+
+    /// <summary>Live throughput for this process. Blank rather than "0" when nothing is
+    /// moving, so the eye lands on the rows that are actually talking.</summary>
+    public string NetDown { get => _netDown; private set => Set(ref _netDown, value); }
+    public string NetUp { get => _netUp; private set => Set(ref _netUp, value); }
+    public long NetTotal { get => _netTotal; private set => Set(ref _netTotal, value); }
     public string Signature { get => _signature; private set => Set(ref _signature, value); }
     public string Publisher { get => _publisher; private set => Set(ref _publisher, value); }
     public string Reasons { get => _reasons; private set => Set(ref _reasons, value); }
@@ -169,6 +178,9 @@ public sealed class LiveRow : INotifyPropertyChanged
         IoValue = p.IoBytesPerSec;
         Io = p.IoBytesPerSec > 0 ? Rate(p.IoBytesPerSec) : "";
         RemoteConns = p.RemoteConnections;
+        NetDown = p.NetInBytesPerSec > 0 ? Rate(p.NetInBytesPerSec) : "";
+        NetUp = p.NetOutBytesPerSec > 0 ? Rate(p.NetOutBytesPerSec) : "";
+        NetTotal = p.NetInBytesPerSec + p.NetOutBytesPerSec;
         Network = p.RemoteConnections > 0 ? $"{p.RemoteConnections} اتصال"
                 : p.Connections > 0 ? $"{p.Connections} منفذ" : "";
         Signature = p.Signature switch
