@@ -633,6 +633,9 @@
                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" VerticalAlignment="Center">
                         <TextBlock x:Name="AutorunSummary" Text="" Foreground="{StaticResource Muted}"
                                    FontSize="12.5" VerticalAlignment="Center" Margin="0,0,14,0" />
+                        <ToggleButton x:Name="AutorunShowSystem" Style="{StaticResource GhostToggle}"
+                                      Content="إظهار عناصر النظام" Margin="0,0,8,0"
+                                      Checked="OnAutorunFilter" Unchecked="OnAutorunFilter" />
                         <Button x:Name="AutorunScanBtn" Content="فحص" Style="{StaticResource Ghost}"
                                 Click="OnScanAutoruns" />
                     </StackPanel>

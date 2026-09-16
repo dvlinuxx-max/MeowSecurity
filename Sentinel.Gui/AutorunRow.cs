@@ -15,6 +15,18 @@ public sealed class AutorunRow(AutorunEntry e)
     public Verdict Verdict { get; } = e.Verdict;
     public bool IsFlagged => Verdict != Verdict.Safe;
 
+    /// <summary>
+    /// A validly signed Windows component. There are hundreds of these — every driver and
+    /// scheduled task the OS ships with — and none of them is what anyone opened this page to
+    /// find, so by default they are folded away and the count is shown instead.
+    /// </summary>
+    public bool IsSystem { get; } =
+        e.Signature == SignatureState.SignedValid &&
+        ((e.Publisher?.Contains("Microsoft", StringComparison.OrdinalIgnoreCase) ?? false) ||
+         (e.ImagePath?.StartsWith(
+             Environment.GetFolderPath(Environment.SpecialFolder.Windows),
+             StringComparison.OrdinalIgnoreCase) ?? false));
+
     public string VerdictText => Verdict switch
     {
         Verdict.Suspicious => "مشبوه",

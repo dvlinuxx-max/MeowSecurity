@@ -400,6 +400,7 @@ public partial class MainWindow : Window
     // ---------------- autoruns ----------------
 
     private readonly ObservableCollection<AutorunRow> _autoruns = [];
+    private ListCollectionView? _autorunsView;
     private bool _autorunsScanned;
     private bool _autorunsScanning;
 
@@ -428,13 +429,32 @@ public partial class MainWindow : Window
             _autoruns.Add(row);
         }
 
-        AutorunGrid.ItemsSource = _autoruns;
-        AutorunSummary.Text = flagged > 0
-            ? $"{_autoruns.Count} عنصر · {flagged} يحتاج مراجعة"
-            : $"{_autoruns.Count} عنصر · كلها سليمة";
+        _autorunsView = new ListCollectionView(_autoruns)
+        {
+            Filter = o => o is AutorunRow r && (AutorunShowSystem.IsChecked == true || !r.IsSystem),
+        };
+        AutorunGrid.ItemsSource = _autorunsView;
+        UpdateAutorunSummary(flagged);
+
         AutorunScanBtn.IsEnabled = true;
         AutorunScanBtn.Content = "إعادة الفحص";
         _autorunsScanning = false;
+    }
+
+    private void UpdateAutorunSummary(int flagged)
+    {
+        int hidden = AutorunShowSystem.IsChecked == true ? 0 : _autoruns.Count(r => r.IsSystem);
+        var parts = new List<string> { $"{_autoruns.Count - hidden} عنصر" };
+        parts.Add(flagged > 0 ? $"{flagged} يحتاج مراجعة" : "كلها سليمة");
+        if (hidden > 0) parts.Add($"{hidden} من مكوّنات ويندوز مخفية");
+        AutorunSummary.Text = string.Join(" · ", parts);
+    }
+
+    private void OnAutorunFilter(object sender, RoutedEventArgs e)
+    {
+        if (_autorunsView is null) return;
+        _autorunsView.Refresh();
+        UpdateAutorunSummary(_autoruns.Count(r => r.IsFlagged));
     }
 
     // ---------------- live loop ----------------
