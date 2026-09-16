@@ -770,6 +770,13 @@
                                 <Border Height="1" Background="{StaticResource Line}" Margin="0,4" />
                                 <CheckBox x:Name="ChkHealth" Style="{StaticResource Switch}"
                                           Content="مراقبة حالة الجهاز (المعالج والذاكرة)" Checked="OnPrefChanged" Unchecked="OnPrefChanged" />
+                                <Border Height="1" Background="{StaticResource Line}" Margin="0,4" />
+                                <Grid Margin="0,10,0,6">
+                                    <TextBlock x:Name="ElevateStatus" Foreground="{StaticResource Muted}" FontSize="13"
+                                               VerticalAlignment="Center" HorizontalAlignment="Right" TextWrapping="Wrap" />
+                                    <Button x:Name="ElevateBtn" Content="تشغيل بصلاحية المدير" Style="{StaticResource Ghost}"
+                                            HorizontalAlignment="Left" Click="OnElevate" />
+                                </Grid>
                             </StackPanel>
                         </Border>
 

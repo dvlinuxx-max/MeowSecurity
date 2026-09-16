@@ -69,6 +69,44 @@ public partial class MainWindow : Window
         if (!string.IsNullOrEmpty(_settings.AbuseIpdbApiKey)) KeyAbuseIpdb.Password = _settings.AbuseIpdbApiKey;
         if (!string.IsNullOrEmpty(_settings.AbuseChApiKey)) KeyAbuseCh.Password = _settings.AbuseChApiKey;
         _loadingSettings = false;
+
+        if (IsElevated())
+        {
+            ElevateStatus.Text = "يعمل بصلاحية المدير — رؤية كاملة لكل العمليات";
+            ElevateBtn.Visibility = Visibility.Collapsed;
+        }
+        else
+        {
+            ElevateStatus.Text = "بعض عمليات النظام مخفية بدون صلاحية المدير";
+            ElevateBtn.Visibility = Visibility.Visible;
+        }
+    }
+
+    private static bool IsElevated()
+    {
+        try
+        {
+            using var id = System.Security.Principal.WindowsIdentity.GetCurrent();
+            return new System.Security.Principal.WindowsPrincipal(id)
+                .IsInRole(System.Security.Principal.WindowsBuiltInRole.Administrator);
+        }
+        catch { return false; }
+    }
+
+    private void OnElevate(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            var exe = Environment.ProcessPath;
+            if (exe is null) return;
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(exe)
+            {
+                Verb = "runas",
+                UseShellExecute = true,
+            });
+            Application.Current.Shutdown();
+        }
+        catch { /* user declined the UAC prompt */ }
     }
 
     private void OnThemeToggle(object sender, RoutedEventArgs e)
