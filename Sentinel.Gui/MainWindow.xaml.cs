@@ -64,6 +64,10 @@ public partial class MainWindow : Window
         _toastTimer.Tick += (_, _) => HideToast();
         LoadSettingsUi();
 
+        // Read the version off the assembly so the about card can never drift from the build.
+        var v = System.Reflection.Assembly.GetExecutingAssembly().GetName().Version;
+        AboutVersion.Text = $"الإصدار {v?.Major ?? 0}.{v?.Minor ?? 1}  ·  رخصة GPL-3.0";
+
         ShowPage("overview");
         Loaded += (_, _) => { Tick(); _timer.Tick += (_, _) => Tick(); _timer.Start(); };
         Closing += OnClosing;
@@ -283,7 +287,7 @@ public partial class MainWindow : Window
         if (!_toldUserAboutTray)
         {
             _toldUserAboutTray = true;
-            _tray?.Notify("Sentinel ما زال يراقب",
+            _tray?.Notify("Meow Security ما زال يراقب",
                 "المراقبة تعمل في الخلفية. انقر الأيقونة للعودة، أو أوقفها من قائمة اليمين.", serious: false);
         }
     }
@@ -292,7 +296,7 @@ public partial class MainWindow : Window
     {
         if (_tray is not null) return;
 
-        _tray = new TrayIcon("Sentinel — المراقبة تعمل");
+        _tray = new TrayIcon("Meow Security — المراقبة تعمل");
         _tray.Activated += RestoreFromTray;
         _tray.ContextMenuRequested += ShowTrayMenu;
     }
@@ -313,7 +317,7 @@ public partial class MainWindow : Window
         menu.Items.Add(Item(_paused ? "استئناف المراقبة" : "إيقاف المراقبة مؤقتا", () =>
         {
             OnPauseToggle(this, new RoutedEventArgs());
-            _tray?.UpdateTip(_paused ? "Sentinel — المراقبة متوقفة" : "Sentinel — المراقبة تعمل");
+            _tray?.UpdateTip(_paused ? "Meow Security — المراقبة متوقفة" : "Meow Security — المراقبة تعمل");
         }));
         menu.Items.Add(new Separator());
         menu.Items.Add(Item("خروج", ExitApp));
@@ -718,6 +722,26 @@ public partial class MainWindow : Window
     {
         NavThreats.IsChecked = true;
         HideToast();
+    }
+
+    /// <summary>
+    /// Opens a credit link in the user's browser. UseShellExecute is required — without it
+    /// .NET tries to execute the URL as a file — and only the http(s) links this page carries
+    /// are ever passed through, so a Tag can never become a command.
+    /// </summary>
+    private void OnOpenLink(object sender, System.Windows.Input.MouseButtonEventArgs e)
+    {
+        if (sender is not FrameworkElement { Tag: string url }) return;
+        if (!url.StartsWith("https://", StringComparison.Ordinal)) return;
+
+        try
+        {
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(url)
+            {
+                UseShellExecute = true,
+            });
+        }
+        catch { /* no browser registered */ }
     }
 
     private static Brush Res(string key) => (Brush)App.Current.Resources[key];

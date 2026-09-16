@@ -137,7 +137,7 @@ void Emit(string line = "")
 }
 
 bool elevated = IsElevated();
-Emit($"Sentinel — process scan  ({(elevated ? "elevated" : "NOT elevated — some processes will be opaque")})");
+Emit($"Meow Security — process scan  ({(elevated ? "elevated" : "NOT elevated — some processes will be opaque")})");
 Emit(new string('-', 78));
 
 var scanner = new ProcessScanner();

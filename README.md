@@ -1,12 +1,14 @@
-# Sentinel (working name)
+# Meow Security
 
 An advanced Windows process, memory, and network monitor / host intrusion detector.
-User-mode, runs elevated (later a Windows service). Open source; a Microsoft Store
+User-mode, runs elevated (later a Windows service). Free software; a Microsoft Store
 release is planned once it matures.
+
+Codebase namespaces still read `Sentinel.*` — that was the working name.
 
 ## Why user-mode
 A full kernel driver on x64 needs a Microsoft-signed driver (EV cert + Hardware Dev
-Center) and is blocked by PatchGuard for deep patching. Sentinel does as much as
+Center) and is blocked by PatchGuard for deep patching. Meow Security does as much as
 possible from elevated user-mode — which covers hidden-process detection, injected-code
 detection, and per-process network attribution — and leaves an optional kernel driver
 for a distant phase.
@@ -36,3 +38,19 @@ Requires .NET 10 SDK (installed). From the repo root:
 dotnet run --project Sentinel.Cli
 ```
 Run an elevated terminal for full visibility into other processes.
+
+Useful flags: `--rule-test` (detection regression suite), `--events` (the security
+event log), `--autoruns` (everything that starts by itself), `--scan <file|url|ip>`.
+
+## Licence
+GNU General Public License v3.0 — see [LICENSE](LICENSE). You may use, study and
+modify this freely; any copy you distribute must stay open source under the same
+licence.
+
+Copyright (c) 2026 Mohammed Abd Alrahman
+· [mohmadev.com](https://mohmadev.com)
+· [github.com/dvlinuxx-max](https://github.com/dvlinuxx-max)
+
+## Not an antivirus
+Meow Security is a monitor and analyser. It is not a replacement for Microsoft
+Defender or any antivirus, and it makes no attempt to be one.

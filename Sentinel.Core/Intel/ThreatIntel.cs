@@ -34,7 +34,7 @@ public sealed class ThreatIntel : IDisposable
     {
         _settings = settings ?? IntelSettings.Load();
         _http = new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
-        _http.DefaultRequestHeaders.TryAddWithoutValidation("User-Agent", "Sentinel/1.0 (+security monitor)");
+        _http.DefaultRequestHeaders.TryAddWithoutValidation("User-Agent", "MeowSecurity/1.0 (+security monitor)");
 
         _cache = new IntelCache();
         _circl = new CirclHashlookup(_http);

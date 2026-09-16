@@ -8,9 +8,13 @@
     <Nullable>enable</Nullable>
     <Platforms>x64</Platforms>
     <RootNamespace>Sentinel.Gui</RootNamespace>
-    <AssemblyName>Sentinel</AssemblyName>
+    <AssemblyName>MeowSecurity</AssemblyName>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationIcon>sentinel.ico</ApplicationIcon>
+    <Product>Meow Security</Product>
+    <Company>Mohammed Abd Alrahman</Company>
+    <Copyright>Copyright (c) 2026 Mohammed Abd Alrahman — GPL-3.0</Copyright>
+    <Version>0.9.0</Version>
   </PropertyGroup>
 
   <ItemGroup>
@@ -20,6 +24,7 @@
   <ItemGroup>
     <Resource Include="Fonts\*.ttf" />
     <Resource Include="sentinel.ico" />
+    <Resource Include="sentinel.png" />
   </ItemGroup>
 
 </Project>
