@@ -81,6 +81,11 @@ still runs and tells you which parts are limited.
 | `--autorun-on/off <name>` | Enable or disable one startup entry. |
 | `--startup-on/off` | Register or remove "start with Windows". |
 
+## Code signing
+
+Free code signing provided by [SignPath.io](https://signpath.io/), certificate by
+[SignPath Foundation](https://signpath.org/).
+
 ## Not an antivirus
 
 Meow Security is a monitor and an analyser. It is not a replacement for Microsoft
