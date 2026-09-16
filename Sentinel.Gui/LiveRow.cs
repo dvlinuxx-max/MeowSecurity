@@ -173,9 +173,9 @@ public sealed class LiveRow : INotifyPropertyChanged
                 : p.Connections > 0 ? $"{p.Connections} منفذ" : "";
         Signature = p.Signature switch
         {
-            SignatureState.SignedValid => "موقّع",
+            SignatureState.SignedValid => "موقع",
             SignatureState.SignedInvalid => "غير صالح",
-            SignatureState.Unsigned => "غير موقّع",
+            SignatureState.Unsigned => "غير موقع",
             _ => "",
         };
         Publisher = p.Publisher ?? p.Description ?? "";

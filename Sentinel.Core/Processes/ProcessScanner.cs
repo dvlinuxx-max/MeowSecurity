@@ -80,21 +80,34 @@ public sealed class ProcessScanner
 
     private void Enrich(ProcessInfo info)
     {
-        try
+        // QueryFullProcessImageName only needs PROCESS_QUERY_LIMITED_INFORMATION, so it
+        // answers for ordinary processes even when we are not elevated. MainModule needs
+        // PROCESS_VM_READ and fails there, which used to leave most rows with no path —
+        // and so no signature and no publisher — on a normal user account.
+        string? path = Native.ProcessDetails.GetImagePath(info.Pid);
+        if (path is null)
         {
-            using var p = Process.GetProcessById(info.Pid);
-            string? path = p.MainModule?.FileName;
-            if (path is not null)
-            {
-                var (state, publisher) = SignatureCache.Get(path);
-                info.ImagePath = path;
-                info.Publisher = publisher;
-                info.Signature = state;
-            }
+            try { using var p = Process.GetProcessById(info.Pid); path = p.MainModule?.FileName; }
+            catch { /* protected process — expected without a driver */ }
         }
-        catch
+
+        if (path is not null)
         {
-            // Access denied to a protected/system process is expected without a driver.
+            var (state, publisher) = SignatureCache.Get(path);
+            info.ImagePath = path;
+            info.Signature = state;
+            info.Publisher = publisher;
+            if (string.IsNullOrWhiteSpace(info.Publisher))
+            {
+                // Catalog-signed Windows files carry no embedded certificate; the version
+                // resource names the same company and covers unsigned files too.
+                try
+                {
+                    var company = FileVersionInfo.GetVersionInfo(path).CompanyName;
+                    if (!string.IsNullOrWhiteSpace(company)) info.Publisher = company.Trim();
+                }
+                catch { /* no version resource */ }
+            }
         }
 
         if (ScanMemory && info.Pid > 4)

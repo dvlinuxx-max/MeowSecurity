@@ -122,7 +122,7 @@ public sealed class ThreatIntel : IDisposable
     {
         var text = (input ?? "").Trim();
         if (text.Length == 0)
-            return Task.FromResult(new ScanReport { Target = text, Kind = ScanKind.Url, Error = "أدخل رابطاً أو عنوان IP أو مساراً لملف." });
+            return Task.FromResult(new ScanReport { Target = text, Kind = ScanKind.Url, Error = "أدخل رابطا أو عنوان IP أو مسارا لملف." });
 
         if (System.Net.IPAddress.TryParse(text, out _))
             return CheckIpAsync(text, ct);
@@ -139,7 +139,7 @@ public sealed class ThreatIntel : IDisposable
             return ScanUrlAsync(text, ct);
         }
 
-        return Task.FromResult(new ScanReport { Target = text, Kind = ScanKind.Url, Error = "لم أتعرّف على المدخل — أدخل رابطاً أو IP أو مسار ملف." });
+        return Task.FromResult(new ScanReport { Target = text, Kind = ScanKind.Url, Error = "لم أتعرف على المدخل — أدخل رابطا أو IP أو مسار ملف." });
     }
 
     private static ScanReport NoVt(string target, ScanKind kind) => new()

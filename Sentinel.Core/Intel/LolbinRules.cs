@@ -115,6 +115,42 @@ public static class LolbinRules
         return lowerCommandLine.Contains("-encodedcommand");
     }
 
+    /// <summary>
+    /// Pulls the script back out of a -EncodedCommand.
+    ///
+    /// An encoded command is only alarming because it hides what it is about to do — so the
+    /// useful response is not to flag the encoding, it is to undo it and read the thing. Plenty
+    /// of honest tooling encodes its commands to dodge quoting rules; malware encodes to hide.
+    /// Only the decoded text can tell those apart, and it is also what the user needs to see.
+    ///
+    /// PowerShell encodes as UTF-16LE base64.
+    /// </summary>
+    public static string? DecodeEncodedCommand(string? commandLine)
+    {
+        if (string.IsNullOrWhiteSpace(commandLine)) return null;
+
+        var parts = commandLine.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        for (int i = 0; i < parts.Length - 1; i++)
+        {
+            var t = parts[i];
+            if (t.Length < 2 || (t[0] != '-' && t[0] != '/')) continue;
+            if (!"encodedcommand".StartsWith(t[1..], StringComparison.OrdinalIgnoreCase)) continue;
+
+            var blob = parts[i + 1].Trim('"');
+            if (blob.Length < 20 || !IsBase64(blob.ToLowerInvariant())) continue;
+            try
+            {
+                var bytes = Convert.FromBase64String(blob);
+                var text = System.Text.Encoding.Unicode.GetString(bytes);
+                // A wrong guess at the encoding shows up as interleaved NULs.
+                if (text.Contains('\0')) text = System.Text.Encoding.UTF8.GetString(bytes);
+                return text.Trim();
+            }
+            catch (FormatException) { return null; }
+        }
+        return null;
+    }
+
     private static bool IsBase64(string s)
     {
         foreach (var c in s)

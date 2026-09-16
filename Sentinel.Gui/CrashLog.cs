@@ -63,7 +63,7 @@ public static class CrashLog
         try
         {
             MessageBox.Show(
-                $"حدث خطأ غير متوقّع، والمراقبة مستمرة.\n\n{ex.GetType().Name}: {ex.Message}\n\nالتفاصيل في:\n{FilePath}",
+                $"حدث خطأ غير متوقع، والمراقبة مستمرة.\n\n{ex.GetType().Name}: {ex.Message}\n\nالتفاصيل في:\n{FilePath}",
                 "Sentinel", MessageBoxButton.OK, MessageBoxImage.Warning);
         }
         catch { }

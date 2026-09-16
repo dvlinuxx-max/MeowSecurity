@@ -24,6 +24,36 @@ public static class ProcessDetails
     private static extern uint NtQueryInformationProcess(
         IntPtr handle, int cls, IntPtr buffer, int length, out int returnLength);
 
+    [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
+    private static extern bool QueryFullProcessImageName(
+        IntPtr handle, uint flags, System.Text.StringBuilder buffer, ref int size);
+
+    /// <summary>
+    /// The path of the running image.
+    ///
+    /// The managed <c>Process.MainModule</c> needs PROCESS_VM_READ — it walks the module list
+    /// inside the target — so without administrator rights it fails for almost every process
+    /// on the machine, and with it go the signature and publisher that are derived from the
+    /// path. QueryFullProcessImageName only needs PROCESS_QUERY_LIMITED_INFORMATION, which an
+    /// ordinary user is granted for ordinary processes, so the columns fill in either way.
+    /// </summary>
+    public static string? GetImagePath(int pid)
+    {
+        if (pid <= 4) return null;   // Idle and System have no image on disk
+        IntPtr h = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid);
+        if (h == IntPtr.Zero) return null;
+        try
+        {
+            int size = 1024;
+            var sb = new System.Text.StringBuilder(size);
+            return QueryFullProcessImageName(h, 0, sb, ref size) && sb.Length > 0
+                ? sb.ToString()
+                : null;
+        }
+        catch { return null; }
+        finally { CloseHandle(h); }
+    }
+
     public static string? GetCommandLine(int pid)
     {
         IntPtr h = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid);

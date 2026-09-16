@@ -35,7 +35,7 @@ public sealed class EventRow(SecurityEvent e)
     public string SeverityText => Severity switch
     {
         Severity.Critical => "حرج",
-        Severity.High => "عالٍ",
+        Severity.High => "مرتفع",
         Severity.Medium => "متوسط",
         Severity.Low => "منخفض",
         _ => "معلومة",

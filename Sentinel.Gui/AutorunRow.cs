@@ -36,9 +36,9 @@ public sealed class AutorunRow(AutorunEntry e)
 
     public string SignatureText => e.Signature switch
     {
-        SignatureState.SignedValid => "موقّع",
+        SignatureState.SignedValid => "موقع",
         SignatureState.SignedInvalid => "غير صالح",
-        SignatureState.Unsigned => "غير موقّع",
+        SignatureState.Unsigned => "غير موقع",
         _ => "—",
     };
 

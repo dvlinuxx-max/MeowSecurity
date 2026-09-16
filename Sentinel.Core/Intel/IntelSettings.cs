@@ -32,7 +32,7 @@ public sealed class IntelSettings
     // ---- interface preferences (persisted in the same file) ----
 
     /// <summary>"dark" or "light".</summary>
-    public string Theme { get; set; } = "dark";
+    public string Theme { get; set; } = "light";
 
     /// <summary>Show a pop-up when a suspicious or malicious process appears.</summary>
     public bool Notifications { get; set; } = true;

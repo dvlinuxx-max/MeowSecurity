@@ -93,7 +93,7 @@ public sealed class AutorunScanner
                     {
                         Name = key.GetValue("DisplayName")?.ToString() is { Length: > 0 } d && !d.StartsWith('@')
                             ? d : name,
-                        Location = driver ? "مشغّل نظام" : "خدمة",
+                        Location = driver ? "مشغل نظام" : "خدمة",
                         Command = command,
                         ImagePath = exe,
                     });
@@ -317,7 +317,7 @@ public sealed class AutorunScanner
         if (string.IsNullOrEmpty(path))
         {
             e.Verdict = Verdict.Review;
-            e.Reason = "تعذّر تحديد الملف المستهدف";
+            e.Reason = "تعذر تحديد الملف المستهدف";
             return;
         }
         if (!File.Exists(path))
@@ -343,19 +343,19 @@ public sealed class AutorunScanner
                 break;
             case SignatureState.Unsigned when inTemp:
                 e.Verdict = Verdict.Suspicious;
-                e.Reason = "غير موقّع ويعمل من مجلد مؤقّت";
+                e.Reason = "غير موقع ويعمل من مجلد مؤقت";
                 break;
             case SignatureState.Unsigned when !inSystem:
                 e.Verdict = Verdict.Review;
-                e.Reason = "غير موقّع خارج مجلدات النظام";
+                e.Reason = "غير موقع خارج مجلدات النظام";
                 break;
             case SignatureState.Unsigned:
                 e.Verdict = Verdict.Review;
-                e.Reason = "غير موقّع";
+                e.Reason = "غير موقع";
                 break;
             default:
                 e.Verdict = Verdict.Safe;
-                e.Reason = "موقّع";
+                e.Reason = "موقع";
                 break;
         }
     }

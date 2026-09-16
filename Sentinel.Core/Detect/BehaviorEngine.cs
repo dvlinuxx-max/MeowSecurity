@@ -96,7 +96,7 @@ public static class BehaviorEngine
         if (ctx.Signature == SignatureState.SignedInvalid)
             found.Add(new Detection("sign.invalid", Severity.High, 45,
                 "توقيع رقمي غير صالح",
-                "الملف موقّع لكن التوقيع مكسور — عُدّل بعد التوقيع أو انتحل ناشراً.", "T1553"));
+                "الملف موقع لكن التوقيع مكسور — عدل بعد التوقيع أو انتحل ناشرا.", "T1553"));
 
         // ---- masquerading: the right name in the wrong place ----
 
@@ -104,22 +104,24 @@ public static class BehaviorEngine
             !path.StartsWith(WinDir, StringComparison.Ordinal))
             found.Add(new Detection("masquerade.system-name", Severity.Critical, 70,
                 $"اسم نظام من مسار غريب: {ctx.Name}",
-                $"صورة نظام تعمل من {ctx.ImagePath} بدلاً من مجلد ويندوز.", "T1036.005"));
+                $"صورة نظام تعمل من {ctx.ImagePath} بدلا من مجلد ويندوز.", "T1036.005"));
 
         if (HasDoubleExtension(ctx.Name))
             found.Add(new Detection("masquerade.double-extension", Severity.High, 40,
                 $"امتداد مزدوج: {ctx.Name}",
-                "الاسم يُظهر امتداد مستند بينما الملف تنفيذي.", "T1036.007"));
+                "الاسم يظهر امتداد مستند بينما الملف تنفيذي.", "T1036.007"));
 
         // ---- living off the land: trusted tools used in untrusted ways ----
 
         if (lolbin && LolbinRules.IsSuspiciousParent(ctx.ParentName))
             found.Add(new Detection("lolbin.office-parent", Severity.Critical, 70,
-                $"{ctx.ParentName} شغّل {ctx.Name}",
+                $"{ctx.ParentName} شغل {ctx.Name}",
                 "مستند أو سكربت أطلق أداة نظام — النمط الكلاسيكي لماكرو خبيث.", "T1566.001"));
 
         var cmdTell = LolbinRules.SuspiciousCommandLine(ctx.CommandLine);
-        if (cmdTell is not null)
+        if (cmdTell == "encoded PowerShell command")
+            found.AddRange(JudgeEncodedCommand(ctx));
+        else if (cmdTell is not null)
         {
             var (weight, severity, arabic) = Tells.TryGetValue(cmdTell, out var t)
                 ? t : (50, Severity.High, cmdTell);
@@ -134,29 +136,69 @@ public static class BehaviorEngine
 
         if (ScriptHosts.Contains(ctx.Name) && fromUserLand)
             found.Add(new Detection("script.user-path", Severity.Medium, 30,
-                $"مُشغّل سكربتات من مجلد المستخدم: {ctx.Name}",
+                $"مشغل سكربتات من مجلد المستخدم: {ctx.Name}",
                 "مضيف سكربت يعمل على محتوى من مجلد قابل للكتابة.", "T1059.005"));
 
         if (ctx.Name.Equals("rundll32.exe", StringComparison.OrdinalIgnoreCase) &&
             string.IsNullOrWhiteSpace(StripImage(ctx.CommandLine)))
             found.Add(new Detection("lolbin.bare-rundll32", Severity.High, 40,
                 "rundll32 بلا وسائط",
-                "rundll32 بلا DLL — غالباً هدف حقن أو عملية مُفرَّغة.", "T1055.012"));
+                "rundll32 بلا DLL — غالبا هدف حقن أو عملية مفرغة.", "T1055.012"));
 
         // ---- location and trust ----
 
         if (ctx.Signature == SignatureState.Unsigned && fromUserLand)
             found.Add(new Detection("trust.unsigned-userland", Severity.Medium, 30,
-                $"غير موقّعة من مجلد قابل للكتابة: {ctx.Name}",
+                $"غير موقعة من مجلد قابل للكتابة: {ctx.Name}",
                 $"تعمل من {ctx.ImagePath} بلا توقيع رقمي.", "T1204"));
 
         if (ctx.Signature == SignatureState.Unsigned && ctx.RemoteConnections > 0 && fromUserLand)
             found.Add(new Detection("network.unsigned-remote", Severity.High, 40,
-                $"اتصال خارجي من ملف غير موقّع: {ctx.Name}",
+                $"اتصال خارجي من ملف غير موقع: {ctx.Name}",
                 $"{ctx.RemoteConnections} اتصال خارجي نشط.", "T1071"));
 
         int score = Math.Min(100, found.Sum(d => d.Score));
         return new BehaviorResult(ctx, found, score);
+    }
+
+    /// <summary>
+    /// Decides what an encoded PowerShell command is actually worth.
+    ///
+    /// Encoding is a hiding technique, so the honest response is to stop guessing and read the
+    /// script. Three outcomes: the decoded text is itself an attack (worse than the encoding
+    /// ever was, and now we can say exactly why), the decoded text is ordinary (plenty of real
+    /// tooling encodes to escape quoting rules — logged, never alarmed), or it will not decode
+    /// at all, which leaves us where we started: something is hidden and we cannot see it.
+    /// </summary>
+    private static IEnumerable<Detection> JudgeEncodedCommand(ProcessContext ctx)
+    {
+        string? script = LolbinRules.DecodeEncodedCommand(ctx.CommandLine);
+
+        if (script is null)
+            return [new Detection("lolbin.command-line", Severity.High, 50,
+                $"سطر أوامر مريب: {ctx.Name}",
+                "أمر PowerShell مرمز تعذر فك ترميزه.", "T1059.001")];
+
+        var inner = LolbinRules.SuspiciousCommandLine(script);
+        if (inner is not null && inner != "encoded PowerShell command")
+        {
+            var (weight, _, arabic) = Tells.TryGetValue(inner, out var t) ? t : (50, Severity.High, inner);
+            // Hiding an attack is worse than running one in the open, so the encoding adds to it.
+            return [new Detection("lolbin.encoded-payload", Severity.Critical, Math.Min(90, weight + 25),
+                $"أمر مرمز يخفي سلوكا خطيرا: {ctx.Name}",
+                $"{arabic} — الأمر بعد فك الترميز: {Excerpt(script)}", "T1027")];
+        }
+
+        return [new Detection("lolbin.command-line", Severity.Low, 10,
+            $"أمر PowerShell مرمز: {ctx.Name}",
+            $"فك الترميز ولا يحتوي سلوكا مريبا: {Excerpt(script)}", "T1059.001")];
+    }
+
+    private static string Excerpt(string script)
+    {
+        var flat = script.ReplaceLineEndings(" ").Trim();
+        while (flat.Contains("  ")) flat = flat.Replace("  ", " ");
+        return flat.Length <= 160 ? flat : flat[..160] + "…";
     }
 
     /// <summary>"report.pdf.exe" — the extension the user sees is not the one Windows runs.</summary>
@@ -196,21 +238,21 @@ public static class BehaviorEngine
     private static readonly Dictionary<string, (int Score, Severity Severity, string Arabic)> Tells = new()
     {
         ["encoded PowerShell command"] =
-            (50, Severity.High, "أمر PowerShell مُرمَّز بـ Base64 لإخفاء محتواه."),
+            (50, Severity.High, "أمر PowerShell مرمز بـ Base64 لإخفاء محتواه."),
         ["hidden no-profile PowerShell"] =
             (45, Severity.High, "PowerShell بنافذة مخفية وبلا ملف تعريف."),
         ["Invoke-Expression of downloaded code"] =
-            (55, Severity.High, "تنفيذ كود مُنزَّل مباشرة في الذاكرة دون لمس القرص."),
+            (55, Severity.High, "تنفيذ كود منزل مباشرة في الذاكرة دون لمس القرص."),
         ["certutil used to download/decode"] =
-            (50, Severity.High, "certutil مستخدمة للتنزيل أو فكّ الترميز."),
+            (50, Severity.High, "certutil مستخدمة للتنزيل أو فك الترميز."),
         ["bitsadmin file transfer"] =
-            (45, Severity.High, "bitsadmin ينقل ملفاً — قناة تنزيل خفية."),
+            (45, Severity.High, "bitsadmin ينقل ملفا — قناة تنزيل خفية."),
         ["regsvr32 remote scriptlet (squiblydoo)"] =
-            (60, Severity.High, "regsvr32 ينفّذ سكربتاً بعيداً (squiblydoo)."),
+            (60, Severity.High, "regsvr32 ينفذ سكربتا بعيدا (squiblydoo)."),
         ["rundll32 javascript payload"] =
-            (55, Severity.High, "rundll32 ينفّذ حمولة JavaScript."),
+            (55, Severity.High, "rundll32 ينفذ حمولة JavaScript."),
         ["mshta remote/script payload"] =
-            (55, Severity.High, "mshta ينفّذ حمولة بعيدة أو سكربتاً."),
+            (55, Severity.High, "mshta ينفذ حمولة بعيدة أو سكربتا."),
 
         // Common enough in honest work that it only earns a line in the log.
         ["in-line remote download"] =

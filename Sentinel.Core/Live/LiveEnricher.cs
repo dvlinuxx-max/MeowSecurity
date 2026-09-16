@@ -104,22 +104,34 @@ public sealed class LiveEnricher
 
     private Enrichment Price(int pid, string name, bool hidden, bool scanMemory)
     {
-        string? path = null, publisher = null, description = null;
+        string? publisher = null, description = null;
         var signature = SignatureState.Unknown;
-        try
+
+        // Limited-information query first: it succeeds for nearly every process without
+        // elevation, where MainModule would have failed and left the row blank.
+        string? path = Native.ProcessDetails.GetImagePath(pid);
+        if (path is null)
         {
-            using var p = Process.GetProcessById(pid);
-            path = p.MainModule?.FileName;
-            if (path is not null)
-            {
-                var (state, pub) = SignatureCache.Get(path);
-                signature = state;
-                publisher = pub;
-                try { description = FileVersionInfo.GetVersionInfo(path).FileDescription; }
-                catch { /* no version resource */ }
-            }
+            try { using var p = Process.GetProcessById(pid); path = p.MainModule?.FileName; }
+            catch { /* protected process — no path, and therefore no verdict */ }
         }
-        catch { /* access denied without a driver — expected for protected processes */ }
+
+        if (path is not null)
+        {
+            var (state, pub) = SignatureCache.Get(path);
+            signature = state;
+            publisher = pub;
+            try
+            {
+                var info = FileVersionInfo.GetVersionInfo(path);
+                description = info.FileDescription;
+                // Catalog-signed Windows binaries carry no embedded certificate, so the
+                // publisher column would sit empty for most of the OS. The version resource
+                // names the same company, and says so for unsigned files too.
+                if (string.IsNullOrWhiteSpace(publisher)) publisher = Nz(info.CompanyName);
+            }
+            catch { /* no version resource */ }
+        }
 
         string? commandLine = pid > 4 ? Native.ProcessDetails.GetCommandLine(pid) : null;
 
@@ -133,6 +145,8 @@ public sealed class LiveEnricher
         var (verdict, reasons) = Score(name, path, signature, hidden, implanted);
         return new Enrichment(path, commandLine, publisher, description, signature, verdict, implanted, reasons);
     }
+
+    private static string? Nz(string? s) => string.IsNullOrWhiteSpace(s) ? null : s.Trim();
 
     private static readonly HashSet<string> KnownSystem = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -165,16 +179,16 @@ public sealed class LiveEnricher
                 break;
             case SignatureState.Unsigned when path is not null && !inSystem &&
                     (path.Contains(@"\temp\") || path.Contains(@"\appdata\local\temp")):
-                reasons.Add("غير موقّعة وتعمل من مجلد مؤقّت");
+                reasons.Add("غير موقعة وتعمل من مجلد مؤقت");
                 verdict = Verdict.Suspicious;
                 break;
             case SignatureState.Unsigned when path is not null && !inSystem:
-                reasons.Add("غير موقّعة خارج مجلدات النظام");
+                reasons.Add("غير موقعة خارج مجلدات النظام");
                 verdict = Verdict.Review;
                 break;
             default:
                 if (sig is SignatureState.Unknown && !KnownSystem.Contains(name) && imagePath is null)
-                    reasons.Add("تعذّر الفحص (شغّل بصلاحية المدير)");
+                    reasons.Add("تعذر الفحص (شغل بصلاحية المدير)");
                 break;
         }
 

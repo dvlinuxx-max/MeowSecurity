@@ -181,14 +181,14 @@ public partial class MainWindow : Window
         if (string.IsNullOrEmpty(input)) return;
 
         ScanBtn.IsEnabled = false;
-        ShowScanResult(ThreatLevel.Unknown, "جارٍ الفحص…", input, "قد يستغرق حتى دقيقة للروابط الجديدة.", null);
+        ShowScanResult(ThreatLevel.Unknown, "جاري الفحص…", input, "قد يستغرق حتى دقيقة للروابط الجديدة.", null);
 
         ScanReport r;
         try { r = await _intel.AdvancedScanAsync(input); }
         catch (Exception ex) { r = new ScanReport { Target = input, Error = ex.Message }; }
 
         ScanBtn.IsEnabled = true;
-        if (!r.Ok) { ShowScanResult(ThreatLevel.Suspicious, "تعذّر الفحص", input, r.Error!, null); return; }
+        if (!r.Ok) { ShowScanResult(ThreatLevel.Suspicious, "تعذر الفحص", input, r.Error!, null); return; }
 
         string verdict = r.Level switch
         {
@@ -310,7 +310,7 @@ public partial class MainWindow : Window
 
         var menu = new ContextMenu { Placement = System.Windows.Controls.Primitives.PlacementMode.MousePoint };
         menu.Items.Add(Item("فتح Sentinel", RestoreFromTray));
-        menu.Items.Add(Item(_paused ? "استئناف المراقبة" : "إيقاف المراقبة مؤقتاً", () =>
+        menu.Items.Add(Item(_paused ? "استئناف المراقبة" : "إيقاف المراقبة مؤقتا", () =>
         {
             OnPauseToggle(this, new RoutedEventArgs());
             _tray?.UpdateTip(_paused ? "Sentinel — المراقبة متوقفة" : "Sentinel — المراقبة تعمل");
@@ -389,7 +389,7 @@ public partial class MainWindow : Window
 
     private void OnClearEvents(object sender, RoutedEventArgs e)
     {
-        if (MessageBox.Show("حذف كل الأحداث المسجّلة نهائياً؟", "مسح السجل",
+        if (MessageBox.Show("حذف كل الأحداث المسجلة نهائيا؟", "مسح السجل",
                 MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes) return;
 
         _events.Clear();
@@ -412,7 +412,7 @@ public partial class MainWindow : Window
         _autorunsScanning = true;
         _autorunsScanned = true;
         AutorunScanBtn.IsEnabled = false;
-        AutorunSummary.Text = "جارٍ الفحص…";
+        AutorunSummary.Text = "جاري الفحص…";
         AutorunHint.Visibility = Visibility.Collapsed;
 
         var scanner = new Sentinel.Core.Persistence.AutorunScanner();
@@ -446,7 +446,7 @@ public partial class MainWindow : Window
         int hidden = AutorunShowSystem.IsChecked == true ? 0 : _autoruns.Count(r => r.IsSystem);
         var parts = new List<string> { $"{_autoruns.Count - hidden} عنصر" };
         parts.Add(flagged > 0 ? $"{flagged} يحتاج مراجعة" : "كلها سليمة");
-        if (hidden > 0) parts.Add($"{hidden} من مكوّنات ويندوز مخفية");
+        if (hidden > 0) parts.Add($"{hidden} من مكونات ويندوز مخفية");
         AutorunSummary.Text = string.Join(" · ", parts);
     }
 
@@ -554,20 +554,20 @@ public partial class MainWindow : Window
         if (alarm > 0)
         {
             color = Res("Red");
-            HeroTitle.Text = $"انتبه — {alarm} عنصر يحتاج تدقيقاً";
+            HeroTitle.Text = $"انتبه — {alarm} عنصر يحتاج تدقيقا";
             HeroSub.Text = "افتح صفحة التهديدات لمراجعة العناصر الحمراء";
         }
         else if (review > 0)
         {
             color = Res("Amber");
             HeroTitle.Text = "جهازك سليم، مع عناصر للمراجعة";
-            HeroSub.Text = $"{review} عنصر بلا توقيع خارج مجلدات النظام — غالباً عادي";
+            HeroSub.Text = $"{review} عنصر بلا توقيع خارج مجلدات النظام — غالبا عادي";
         }
         else
         {
             color = Res("Green");
             HeroTitle.Text = "جهازك سليم";
-            HeroSub.Text = "كل العمليات موقّعة، ولا كود محقون، ولا عملية مخفية";
+            HeroSub.Text = "كل العمليات موقعة، ولا كود محقون، ولا عملية مخفية";
         }
         HeroTitle.Foreground = color;
         HeroScore.Text = score.ToString();
@@ -582,7 +582,7 @@ public partial class MainWindow : Window
     private void OnPauseToggle(object sender, RoutedEventArgs e)
     {
         _paused = !_paused;
-        PauseButton.Content = _paused ? "استئناف" : "إيقاف مؤقّت";
+        PauseButton.Content = _paused ? "استئناف" : "إيقاف مؤقت";
         LiveLabel.Text = _paused ? "المراقبة موقوفة" : "المراقبة نشطة";
     }
 
@@ -598,7 +598,7 @@ public partial class MainWindow : Window
     private void OnSuspendProcess(object sender, RoutedEventArgs e)
     {
         if (RowFrom(sender) is { } r && !Sentinel.Core.Native.ProcessControl.Suspend(r.Pid))
-            MessageBox.Show(this, "تعذّر الإيقاف — قد تكون عملية محمية.", "تنبيه",
+            MessageBox.Show(this, "تعذر الإيقاف — قد تكون عملية محمية.", "تنبيه",
                 MessageBoxButton.OK, MessageBoxImage.Warning);
     }
 
@@ -621,7 +621,7 @@ public partial class MainWindow : Window
         }
         catch (Exception ex)
         {
-            MessageBox.Show(this, $"تعذّر الإنهاء: {ex.Message}", "خطأ",
+            MessageBox.Show(this, $"تعذر الإنهاء: {ex.Message}", "خطأ",
                 MessageBoxButton.OK, MessageBoxImage.Error);
         }
     }
