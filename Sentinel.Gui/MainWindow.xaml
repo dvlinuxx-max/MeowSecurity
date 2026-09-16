@@ -1013,6 +1013,11 @@
                                 <CheckBox x:Name="ChkSound" Style="{StaticResource Switch}"
                                           Content="صوت مع التنبيه" Checked="OnPrefChanged" Unchecked="OnPrefChanged" />
                                 <Border Height="1" Background="{StaticResource Line}" Margin="0,4" />
+                                <CheckBox x:Name="ChkStartup" Style="{StaticResource Switch}"
+                                          Content="التشغيل مع بدء ويندوز" Checked="OnStartupToggle" Unchecked="OnStartupToggle" />
+                                <TextBlock x:Name="StartupStatus" Foreground="{StaticResource Faint}" FontSize="11.5"
+                                           TextWrapping="Wrap" Margin="0,0,0,4" />
+                                <Border Height="1" Background="{StaticResource Line}" Margin="0,4" />
                                 <CheckBox x:Name="ChkBackground" Style="{StaticResource Switch}"
                                           Content="الاستمرار بالمراقبة في الخلفية عند الإغلاق" Checked="OnPrefChanged" Unchecked="OnPrefChanged" />
                                 <Border Height="1" Background="{StaticResource Line}" Margin="0,4" />

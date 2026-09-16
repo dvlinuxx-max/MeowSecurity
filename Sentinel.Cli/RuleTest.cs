@@ -159,6 +159,61 @@ internal static class RuleTest
             Expect.Silent),
     };
 
+    /// <summary>
+    /// Drives the health monitor with a synthetic clock. The measuring is trivial; the part
+    /// worth pinning down is the restraint — strain must hold a full minute before it is
+    /// mentioned, it must be mentioned only once, and a later episode must be able to speak
+    /// again after the machine recovers.
+    /// </summary>
+    private static bool RunHealth()
+    {
+        var monitor = new Sentinel.Core.Health.HealthMonitor();
+        var t = new DateTime(2026, 1, 1, 12, 0, 0);
+        var fired = new List<string>();
+
+        Sentinel.Core.Live.SystemPulse Pulse(double cpu, double memPercent) =>
+            new(cpu, (long)(memPercent * 1_000_000), 100_000_000, 0, 0, 200, 2000);
+
+        void Tick(double cpu, double mem, int seconds)
+        {
+            for (int i = 0; i < seconds; i++)
+            {
+                if (monitor.Observe(Pulse(cpu, mem), "miner.exe", t) is { } ev) fired.Add(ev.Rule);
+                t = t.AddSeconds(1);
+            }
+        }
+
+        Tick(95, 40, 30);   // strained, but not yet for long enough
+        bool quietEarly = fired.Count == 0;
+
+        Tick(95, 40, 45);   // now past a minute
+        bool firedOnce = fired.Count == 1 && fired[0] == "health.cpu";
+
+        Tick(95, 40, 120);  // still strained — must not repeat
+        bool stillOnce = fired.Count == 1;
+
+        Tick(20, 40, 60);   // recovered
+        Tick(95, 40, 90);   // a second episode may speak again
+        bool secondEpisode = fired.Count == 2;
+
+        Tick(20, 95, 90);   // memory now, cpu calm
+        bool memoryFired = fired.Count == 3 && fired[2] == "health.memory";
+
+        var checks = new (string What, bool Ok)[]
+        {
+            ("silent before a minute of strain", quietEarly),
+            ("reports once the minute has passed", firedOnce),
+            ("does not repeat while strain continues", stillOnce),
+            ("reports again after recovery", secondEpisode),
+            ("memory pressure reported separately", memoryFired),
+        };
+
+        Console.WriteLine("\nHealth monitor\n" + new string('-', 78));
+        foreach (var (what, ok) in checks)
+            Console.WriteLine($"  {(ok ? "PASS" : "FAIL")}  {what}");
+        return checks.All(c => c.Ok);
+    }
+
     public static bool Run()
     {
         int pass = 0, fail = 0;
@@ -191,6 +246,8 @@ internal static class RuleTest
 
         Console.WriteLine(new string('-', 78));
         Console.WriteLine($"  {pass} passed, {fail} failed");
-        return fail == 0;
+
+        bool health = RunHealth();
+        return fail == 0 && health;
     }
 }

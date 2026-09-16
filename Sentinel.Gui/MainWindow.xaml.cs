@@ -34,6 +34,7 @@ public partial class MainWindow : Window
     private readonly EventStore _events = new();
     private readonly BehaviorWatcher _watcher;
     private readonly Sentinel.Core.Etw.ProcessStartWatcher _etw = new();
+    private readonly Sentinel.Core.Health.HealthMonitor _health = new();
     private readonly ObservableCollection<EventRow> _eventRows = [];
     private ListCollectionView _eventsView = null!;
 
@@ -95,6 +96,7 @@ public partial class MainWindow : Window
         ChkSound.IsChecked = _settings.AlertSound;
         ChkBackground.IsChecked = _settings.RunInBackground;
         ChkHealth.IsChecked = _settings.HealthMonitoring;
+        RefreshStartupSwitch();
         if (!string.IsNullOrEmpty(_settings.VirusTotalApiKey)) KeyVt.Password = _settings.VirusTotalApiKey;
         if (!string.IsNullOrEmpty(_settings.AbuseIpdbApiKey)) KeyAbuseIpdb.Password = _settings.AbuseIpdbApiKey;
         if (!string.IsNullOrEmpty(_settings.AbuseChApiKey)) KeyAbuseCh.Password = _settings.AbuseChApiKey;
@@ -153,6 +155,57 @@ public partial class MainWindow : Window
         fresh.NavSettings.IsChecked = true;
         _timer.Stop();
         Close(); // the Closed handler disposes intel + reputation
+    }
+
+    /// <summary>
+    /// Starting with Windows is a scheduled task, not a Run key, because the live capture
+    /// needs administrator rights — a Run entry would bring the monitor back after every
+    /// reboot quietly missing the events it exists to catch.
+    ///
+    /// The switch reflects whether the task actually exists rather than a saved preference,
+    /// so it can never claim something the machine disagrees with.
+    /// </summary>
+    private void OnStartupToggle(object sender, RoutedEventArgs e)
+    {
+        if (_loadingSettings) return;
+
+        bool wanted = ChkStartup.IsChecked == true;
+        var exe = Environment.ProcessPath;
+        if (exe is null) return;
+
+        var result = wanted
+            ? Sentinel.Core.Persistence.StartupRegistration.Register(exe)
+            : Sentinel.Core.Persistence.StartupRegistration.Unregister();
+
+        if (result.Ok)
+        {
+            StartupStatus.Text = result.Message;
+            return;
+        }
+
+        // Put the switch back where reality left it before explaining why.
+        _loadingSettings = true;
+        ChkStartup.IsChecked = !wanted;
+        _loadingSettings = false;
+
+        if (result.NeedsElevation &&
+            MessageBox.Show($"{result.Message}\n\nتشغيل البرنامج بصلاحية المدير الآن؟",
+                "Meow Security", MessageBoxButton.YesNo, MessageBoxImage.Question) == MessageBoxResult.Yes)
+        {
+            OnElevate(this, new RoutedEventArgs());
+            return;
+        }
+
+        StartupStatus.Text = result.Message;
+    }
+
+    private void RefreshStartupSwitch()
+    {
+        bool registered = Sentinel.Core.Persistence.StartupRegistration.IsRegistered();
+        ChkStartup.IsChecked = registered;
+        StartupStatus.Text = registered
+            ? "مسجل كمهمة تعمل بصلاحية كاملة عند تسجيل الدخول"
+            : "بدونه تتوقف المراقبة عند إعادة تشغيل الجهاز حتى تفتح البرنامج بنفسك";
     }
 
     private void OnPrefChanged(object sender, RoutedEventArgs e)
@@ -797,6 +850,21 @@ public partial class MainWindow : Window
         // Behavioural pass: cheap, local, and the only thing that catches a signed LOLBin
         // being driven by something it has no business being driven by.
         RecordEvents(_watcher.Inspect(sample));
+
+        // Device health: the symptom people actually notice, and how a miner announces itself.
+        if (_settings.HealthMonitoring)
+        {
+            string? heaviest = sample
+                .Where(p => p.Pid > 4)
+                .OrderByDescending(p => p.CpuPercent)
+                .FirstOrDefault()?.Name;
+
+            if (_health.Observe(pulse, heaviest, DateTime.Now) is { } strain)
+            {
+                _events.Append(strain);
+                RecordEvents([strain]);
+            }
+        }
 
         UpdateReadouts(pulse);
         UpdateVerdict(suspicious, review, hidden);

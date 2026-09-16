@@ -78,6 +78,30 @@ if (Array.IndexOf(args, "--autorun-off") is var offIdx and >= 0 && offIdx + 1 < 
     return;
 }
 
+// Register or remove the "start with Windows" task. Same code path the settings switch uses.
+if (args.Contains("--startup-status") || args.Contains("--startup-on") || args.Contains("--startup-off"))
+{
+    if (args.Contains("--startup-on"))
+    {
+        int i = Array.IndexOf(args, "--startup-on");
+        string exe = i + 1 < args.Length && !args[i + 1].StartsWith('-')
+            ? args[i + 1]
+            : Environment.ProcessPath ?? "";
+        var r = StartupRegistration.Register(exe);
+        Console.WriteLine($"{(r.Ok ? "OK" : "FAILED")} — {r.Message}");
+        Environment.ExitCode = r.Ok ? 0 : 1;
+    }
+    else if (args.Contains("--startup-off"))
+    {
+        var r = StartupRegistration.Unregister();
+        Console.WriteLine($"{(r.Ok ? "OK" : "FAILED")} — {r.Message}");
+        Environment.ExitCode = r.Ok ? 0 : 1;
+    }
+
+    Console.WriteLine($"registered: {StartupRegistration.IsRegistered()}");
+    return;
+}
+
 if (args.Contains("--autoruns"))
 {
     var ar = new AutorunScanner().Scan();
