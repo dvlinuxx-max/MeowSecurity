@@ -1,10 +1,32 @@
 using System.Security.Principal;
 using System.Text;
+using Sentinel.Cli;
+using Sentinel.Core.Detect;
 using Sentinel.Core.Intel;
 using Sentinel.Core.Persistence;
 using Sentinel.Core.Processes;
 
 Console.OutputEncoding = Encoding.UTF8;
+
+// Regression check for the behaviour rules. Detection logic cannot be validated by running
+// real malware, so it is validated against a table of attack shapes and — just as important
+// — a table of the everyday developer noise that must never fire.
+if (args.Contains("--rule-test"))
+{
+    Environment.ExitCode = RuleTest.Run() ? 0 : 1;
+    return;
+}
+
+if (args.Contains("--events"))
+{
+    var store = new EventStore();
+    var log = store.Load(args.Contains("--all") ? EventStore.MaxEvents : 40);
+    Console.WriteLine($"Security events — {log.Count} shown, {store.FilePath}\n" + new string('-', 78));
+    foreach (var e in log)
+        Console.WriteLine($"  {e.TimeLocal:yyyy-MM-dd HH:mm:ss}  [{e.Severity,-8}] {e.Process} ({e.Pid})\n" +
+                          $"      {e.Title} — {e.Detail}  [{e.Technique ?? "-"}]");
+    return;
+}
 
 if (args.Contains("--autoruns"))
 {

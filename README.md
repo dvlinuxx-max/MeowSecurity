@@ -22,10 +22,13 @@ for a distant phase.
 2. Injection detection: walk each process's memory for executable-but-unbacked regions
    (shellcode), hollowing, reflective DLLs.
 3. Network attribution: map every TCP/UDP endpoint to its owning process.
-4. Live background service via ETW + alerts.
+4. Behavioural detection: judge a process by its parent, its command line and where it runs
+   from, not just its hash — then record every finding to a durable event log. *(done; the
+   rules are regression-tested with `sentinel --rule-test`)*
 5. Reputation (VirusTotal / YARA), two-tier UI (simple verdict for users, deep detail
    for pros).
-6. (Far, optional) kernel driver — gated on an EV cert.
+6. Live background service via ETW + alerts.
+7. (Far, optional) kernel driver — gated on an EV cert.
 
 ## Build
 Requires .NET 10 SDK (installed). From the repo root:

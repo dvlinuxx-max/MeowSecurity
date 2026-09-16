@@ -42,21 +42,41 @@ public static class LolbinRules
     /// <summary>
     /// Command-line tells that push a LOLBin from "normal admin use" toward "attack".
     /// Returns a short reason when something looks off, else null.
+    ///
+    /// Every rule here is deliberately narrower than the textbook version. Developer tooling
+    /// runs PowerShell constantly — `-NoProfile -ExecutionPolicy Bypass`, `Invoke-Expression`
+    /// of a local script, `curl` in a build step — and a monitor that flags all of it teaches
+    /// its user to ignore it. So the download and IEX rules fire only in *combination*: the
+    /// cradle pattern (fetch + execute), not either half alone.
     /// </summary>
     public static string? SuspiciousCommandLine(string? commandLine)
     {
         if (string.IsNullOrWhiteSpace(commandLine)) return null;
         var cl = commandLine.ToLowerInvariant();
 
-        // PowerShell obfuscation / download-cradle markers.
-        if (cl.Contains("-enc") || cl.Contains("-encodedcommand") || cl.Contains("frombase64string"))
+        bool fetches = cl.Contains("downloadstring") || cl.Contains("downloadfile") ||
+                       cl.Contains("downloaddata") || cl.Contains("webclient") ||
+                       cl.Contains("invoke-webrequest") || cl.Contains("iwr ") ||
+                       cl.Contains("invoke-restmethod") || cl.Contains("irm ") ||
+                       cl.Contains("bitstransfer");
+        bool executes = cl.Contains("iex") || cl.Contains("invoke-expression") ||
+                        cl.Contains("start-process") || cl.Contains("| . ") ||
+                        cl.Contains("frombase64string");
+        bool remote = cl.Contains("http://") || cl.Contains("https://") ||
+                      cl.Contains("ftp://") || cl.Contains(@"\\");
+
+        // PowerShell obfuscation: an encoded command hides what it does from the user *and*
+        // from the event log, which is the whole reason attackers reach for it.
+        if (HasEncodedCommand(cl))
             return "encoded PowerShell command";
-        if (cl.Contains("-nop") && cl.Contains("-w hidden"))
+        if (cl.Contains("-nop") && (cl.Contains("-w hidden") || cl.Contains("-windowstyle hidden")))
             return "hidden no-profile PowerShell";
-        if (cl.Contains("downloadstring") || cl.Contains("downloadfile") || cl.Contains("invoke-webrequest") || cl.Contains("iwr ") || cl.Contains("wget ") || cl.Contains("curl "))
-            return "in-line remote download";
-        if (cl.Contains("iex(") || cl.Contains("invoke-expression"))
+
+        // The download cradle: fetch and run in one breath, never touching disk.
+        if (fetches && executes)
             return "Invoke-Expression of downloaded code";
+        if (fetches && remote)
+            return "in-line remote download";
 
         // certutil / bitsadmin used as downloaders.
         if (cl.Contains("certutil") && (cl.Contains("-urlcache") || cl.Contains("-decode")))
@@ -73,5 +93,32 @@ public static class LolbinRules
             return "mshta remote/script payload";
 
         return null;
+    }
+
+    /// <summary>
+    /// PowerShell accepts any unambiguous prefix of -EncodedCommand (-e, -en, -enc …), so a
+    /// literal "-enc" test misses half the real samples. This walks the tokens instead and
+    /// asks for the shape that matters: an -e* switch followed by a long base64 blob.
+    /// </summary>
+    private static bool HasEncodedCommand(string lowerCommandLine)
+    {
+        var parts = lowerCommandLine.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        for (int i = 0; i < parts.Length - 1; i++)
+        {
+            var t = parts[i];
+            if (t.Length < 2 || (t[0] != '-' && t[0] != '/')) continue;
+            if (!"encodedcommand".StartsWith(t[1..], StringComparison.Ordinal)) continue;
+
+            var blob = parts[i + 1].Trim('"');
+            if (blob.Length >= 20 && IsBase64(blob)) return true;
+        }
+        return lowerCommandLine.Contains("-encodedcommand");
+    }
+
+    private static bool IsBase64(string s)
+    {
+        foreach (var c in s)
+            if (!char.IsAsciiLetterOrDigit(c) && c != '+' && c != '/' && c != '=') return false;
+        return true;
     }
 }

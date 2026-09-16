@@ -4,6 +4,7 @@ using System.Windows.Controls;
 using System.Windows.Data;
 using System.Windows.Media;
 using System.Windows.Threading;
+using Sentinel.Core.Detect;
 using Sentinel.Core.Intel;
 using Sentinel.Core.Live;
 using Sentinel.Core.Processes;
@@ -26,6 +27,11 @@ public partial class MainWindow : Window
     private readonly HashSet<int> _alerted = [];
     private readonly DispatcherTimer _toastTimer = new() { Interval = TimeSpan.FromSeconds(9) };
 
+    private readonly EventStore _events = new();
+    private readonly BehaviorWatcher _watcher;
+    private readonly ObservableCollection<EventRow> _eventRows = [];
+    private ListCollectionView _eventsView = null!;
+
     private ListCollectionView _threatsView = null!;
     private ListCollectionView _netView = null!;
 
@@ -34,9 +40,12 @@ public partial class MainWindow : Window
 
     public MainWindow()
     {
+        _watcher = new BehaviorWatcher(_events);
+
         InitializeComponent();
 
         Grid.ItemsSource = _rows;
+        LoadEventHistory();
         _threatsView = new ListCollectionView(_rows) { Filter = o => o is LiveRow r && r.IsFlagged };
         _netView = new ListCollectionView(_rows) { Filter = o => o is LiveRow r && r.RemoteConns > 0 };
         ThreatGrid.ItemsSource = _threatsView;
@@ -233,10 +242,71 @@ public partial class MainWindow : Window
         PageNetwork.Visibility = tag == "network" ? Visibility.Visible : Visibility.Collapsed;
         PageAutoruns.Visibility = tag == "autoruns" ? Visibility.Visible : Visibility.Collapsed;
         PageThreats.Visibility = tag == "threats" ? Visibility.Visible : Visibility.Collapsed;
+        PageEvents.Visibility = tag == "events" ? Visibility.Visible : Visibility.Collapsed;
         PageSettings.Visibility = tag == "settings" ? Visibility.Visible : Visibility.Collapsed;
 
         // First time the autoruns page is opened, scan automatically.
         if (tag == "autoruns" && !_autorunsScanned) ScanAutoruns();
+    }
+
+    // ---------------- security events ----------------
+
+    /// <summary>
+    /// Brings back what happened while the app was closed. This is the whole point of the
+    /// events page: an attack at 03:00 is still on the screen at 09:00.
+    /// </summary>
+    private void LoadEventHistory()
+    {
+        foreach (var ev in _events.Load(500))   // already newest-first
+            _eventRows.Add(new EventRow(ev));
+
+        _eventsView = new ListCollectionView(_eventRows)
+        {
+            Filter = o => o is EventRow r &&
+                          (EventOnlySerious?.IsChecked != true || r.Severity >= Severity.High),
+        };
+        EventGrid.ItemsSource = _eventsView;
+        UpdateEventSummary();
+    }
+
+    private void RecordEvents(IReadOnlyList<SecurityEvent> fresh)
+    {
+        if (fresh.Count == 0) return;
+
+        foreach (var ev in fresh)
+            _eventRows.Insert(0, new EventRow(ev));   // newest on top
+
+        UpdateEventSummary();
+
+        // Only the serious ones interrupt; the rest wait quietly in the log.
+        var worst = fresh.OrderByDescending(e => e.Score).First();
+        if (_settings.Notifications && worst.Severity >= _watcher.AlertFloor && _alerted.Add(worst.Pid))
+            ShowAlert(worst.Title, worst.Detail,
+                Res(worst.Severity == Severity.Critical ? "Red" : "Amber"));
+    }
+
+    private void UpdateEventSummary()
+    {
+        if (EventSummary is null) return;
+        int serious = _eventRows.Count(r => r.Severity >= Severity.High);
+        EventSummary.Text = _eventRows.Count == 0
+            ? "لا أحداث"
+            : $"{_eventRows.Count} حدث · {serious} خطير";
+        EventHint.Visibility = _eventRows.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+        EventBadge.Visibility = serious > 0 ? Visibility.Visible : Visibility.Collapsed;
+        EventBadgeText.Text = serious > 99 ? "99+" : serious.ToString();
+    }
+
+    private void OnEventFilter(object sender, RoutedEventArgs e) => _eventsView?.Refresh();
+
+    private void OnClearEvents(object sender, RoutedEventArgs e)
+    {
+        if (MessageBox.Show("حذف كل الأحداث المسجّلة نهائياً؟", "مسح السجل",
+                MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes) return;
+
+        _events.Clear();
+        _eventRows.Clear();
+        UpdateEventSummary();
     }
 
     // ---------------- autoruns ----------------
@@ -325,6 +395,10 @@ public partial class MainWindow : Window
                 _rows.RemoveAt(i);
             }
         }
+
+        // Behavioural pass: cheap, local, and the only thing that catches a signed LOLBin
+        // being driven by something it has no business being driven by.
+        RecordEvents(_watcher.Inspect(sample));
 
         UpdateReadouts(pulse);
         UpdateVerdict(suspicious, review, hidden);

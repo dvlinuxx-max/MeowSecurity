@@ -80,6 +80,32 @@
             </Setter>
         </Style>
 
+        <!-- Ghost button that stays lit while it is on (events filter) -->
+        <Style TargetType="ToggleButton" x:Key="GhostToggle">
+            <Setter Property="Foreground" Value="{StaticResource Text}" />
+            <Setter Property="FontSize" Value="12.5" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ToggleButton">
+                        <Border x:Name="b" Background="{StaticResource Card}" CornerRadius="7"
+                                Padding="16,8" BorderBrush="{StaticResource Line}" BorderThickness="1">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="b" Property="BorderBrush" Value="{StaticResource Brand}" />
+                            </Trigger>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="b" Property="Background" Value="{StaticResource RedTint}" />
+                                <Setter TargetName="b" Property="BorderBrush" Value="{StaticResource Red}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
         <!-- Grids (shared by all three tables) -->
         <Style TargetType="DataGrid">
             <Setter Property="Background" Value="Transparent" />
@@ -248,6 +274,18 @@
                                  Content="بدء التشغيل" Checked="OnNav" Tag="autoruns" />
                     <RadioButton x:Name="NavThreats" GroupName="nav" Style="{StaticResource NavItem}"
                                  Content="التهديدات" Checked="OnNav" Tag="threats" />
+                    <RadioButton x:Name="NavEvents" GroupName="nav" Style="{StaticResource NavItem}"
+                                 Checked="OnNav" Tag="events">
+                        <Grid>
+                            <TextBlock Text="الأحداث" HorizontalAlignment="Right" VerticalAlignment="Center" />
+                            <Border x:Name="EventBadge" Visibility="Collapsed" HorizontalAlignment="Left"
+                                    VerticalAlignment="Center" Background="{StaticResource Red}"
+                                    CornerRadius="9" MinWidth="20" Padding="6,1">
+                                <TextBlock x:Name="EventBadgeText" Text="0" Foreground="White" FontSize="11"
+                                           FontWeight="Bold" HorizontalAlignment="Center" />
+                            </Border>
+                        </Grid>
+                    </RadioButton>
                     <RadioButton x:Name="NavSettings" GroupName="nav" Style="{StaticResource NavItem}"
                                  Content="الإعدادات" Checked="OnNav" Tag="settings" />
                 </StackPanel>
@@ -630,6 +668,67 @@
                                 <DataGridTextColumn Header="التوقيع" Binding="{Binding SignatureText}" Width="86" />
                                 <DataGridTextColumn Header="الناشر" Binding="{Binding Publisher}" Width="180" />
                                 <DataGridTextColumn Header="المسار" Binding="{Binding Path}" Width="*" />
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </Grid>
+                </Border>
+            </Grid>
+
+            <!-- === EVENTS === -->
+            <Grid x:Name="PageEvents" Margin="28,26" Visibility="Collapsed">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+                <Grid Grid.Row="0" Margin="0,0,0,16">
+                    <TextBlock Text="سجل الأحداث" Foreground="{StaticResource Text}" HorizontalAlignment="Right"
+                               FontSize="22" FontWeight="Bold" VerticalAlignment="Center" />
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" VerticalAlignment="Center">
+                        <TextBlock x:Name="EventSummary" Text="" Foreground="{StaticResource Muted}"
+                                   FontSize="12.5" VerticalAlignment="Center" Margin="0,0,14,0" />
+                        <ToggleButton x:Name="EventOnlySerious" Style="{StaticResource GhostToggle}"
+                                      Content="الخطير فقط" Checked="OnEventFilter" Unchecked="OnEventFilter" />
+                        <Button Content="مسح السجل" Style="{StaticResource Ghost}" Margin="8,0,0,0"
+                                Click="OnClearEvents" />
+                    </StackPanel>
+                </Grid>
+                <Border Grid.Row="1" Background="{StaticResource Card}" CornerRadius="12"
+                        BorderBrush="{StaticResource Line}" BorderThickness="1" Padding="6,2">
+                    <Grid>
+                        <TextBlock x:Name="EventHint" VerticalAlignment="Center" HorizontalAlignment="Center"
+                                   Foreground="{StaticResource Faint}" FontSize="13.5"
+                                   Text="لا أحداث بعد. يُسجَّل هنا كل سلوك مريب لحظة وقوعه، ويبقى بعد إغلاق البرنامج." />
+                        <DataGrid x:Name="EventGrid">
+                            <DataGrid.RowStyle>
+                                <Style TargetType="DataGridRow" BasedOn="{StaticResource {x:Type DataGridRow}}">
+                                    <Setter Property="ToolTip" Value="{Binding Tip}" />
+                                </Style>
+                            </DataGrid.RowStyle>
+                            <DataGrid.Columns>
+                                <DataGridTemplateColumn Header="الخطورة" Width="86" SortMemberPath="Severity">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <Border Background="{Binding Tint}" CornerRadius="5" Padding="9,2"
+                                                    HorizontalAlignment="Right" Margin="4,0">
+                                                <TextBlock Text="{Binding SeverityText}" Foreground="{Binding Accent}"
+                                                           FontWeight="Bold" FontSize="11.5" />
+                                            </Border>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+                                <DataGridTextColumn Header="الوقت" Binding="{Binding Time}" Width="76" />
+                                <DataGridTextColumn Header="الحدث" Binding="{Binding Title}" Width="250">
+                                    <DataGridTextColumn.ElementStyle>
+                                        <Style TargetType="TextBlock">
+                                            <Setter Property="FontWeight" Value="SemiBold" />
+                                            <Setter Property="VerticalAlignment" Value="Center" />
+                                        </Style>
+                                    </DataGridTextColumn.ElementStyle>
+                                </DataGridTextColumn>
+                                <DataGridTextColumn Header="العملية" Binding="{Binding Process}" Width="160" />
+                                <DataGridTextColumn Header="الأب" Binding="{Binding Parent}" Width="130" />
+                                <DataGridTextColumn Header="التقنية" Binding="{Binding Technique}" Width="92" />
+                                <DataGridTextColumn Header="التفاصيل" Binding="{Binding Detail}" Width="*" />
                             </DataGrid.Columns>
                         </DataGrid>
                     </Grid>
