@@ -37,6 +37,12 @@ public sealed class IntelSettings
     /// <summary>Show a pop-up when a suspicious or malicious process appears.</summary>
     public bool Notifications { get; set; } = true;
 
+    /// <summary>Also raise a Windows notification, so an alert is seen with the app in the background.</summary>
+    public bool SystemNotifications { get; set; } = true;
+
+    /// <summary>Play a sound with a serious alert.</summary>
+    public bool AlertSound { get; set; } = true;
+
     /// <summary>Keep monitoring from the tray after the window is closed.</summary>
     public bool RunInBackground { get; set; } = false;
 

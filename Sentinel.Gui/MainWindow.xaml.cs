@@ -70,7 +70,16 @@ public partial class MainWindow : Window
         AboutVersion.Text = $"الإصدار {v?.Major ?? 0}.{v?.Minor ?? 1}  ·  رخصة GPL-3.0";
 
         ShowPage("overview");
-        Loaded += (_, _) => { Tick(); _timer.Tick += (_, _) => Tick(); _timer.Start(); StartLiveCapture(); };
+        Loaded += (_, _) =>
+        {
+            Tick();
+            _timer.Tick += (_, _) => Tick();
+            _timer.Start();
+            StartLiveCapture();
+            // Present from the start: a monitor that is running should say so, and an alert
+            // cannot reach the notification area without it.
+            if (_settings.SystemNotifications) EnsureTray();
+        };
         Closing += OnClosing;
         Closed += (_, _) => { _reputation.Dispose(); _intel.Dispose(); _tray?.Dispose(); _etw.Dispose(); };
     }
@@ -82,6 +91,8 @@ public partial class MainWindow : Window
         _loadingSettings = true;
         ChkLight.IsChecked = string.Equals(_settings.Theme, "light", StringComparison.OrdinalIgnoreCase);
         ChkNotify.IsChecked = _settings.Notifications;
+        ChkSystemNotify.IsChecked = _settings.SystemNotifications;
+        ChkSound.IsChecked = _settings.AlertSound;
         ChkBackground.IsChecked = _settings.RunInBackground;
         ChkHealth.IsChecked = _settings.HealthMonitoring;
         if (!string.IsNullOrEmpty(_settings.VirusTotalApiKey)) KeyVt.Password = _settings.VirusTotalApiKey;
@@ -148,6 +159,9 @@ public partial class MainWindow : Window
     {
         if (_loadingSettings) return;
         _settings.Notifications = ChkNotify.IsChecked == true;
+        _settings.SystemNotifications = ChkSystemNotify.IsChecked == true;
+        _settings.AlertSound = ChkSound.IsChecked == true;
+        if (_settings.SystemNotifications) EnsureTray();
         _settings.RunInBackground = ChkBackground.IsChecked == true;
         _settings.HealthMonitoring = ChkHealth.IsChecked == true;
         _settings.Save();
@@ -253,6 +267,7 @@ public partial class MainWindow : Window
         PageAutoruns.Visibility = tag == "autoruns" ? Visibility.Visible : Visibility.Collapsed;
         PageThreats.Visibility = tag == "threats" ? Visibility.Visible : Visibility.Collapsed;
         PageEvents.Visibility = tag == "events" ? Visibility.Visible : Visibility.Collapsed;
+        PageAlerts.Visibility = tag == "alerts" ? Visibility.Visible : Visibility.Collapsed;
         PageSettings.Visibility = tag == "settings" ? Visibility.Visible : Visibility.Collapsed;
 
         // First time the autoruns page is opened, scan automatically.
@@ -391,6 +406,99 @@ public partial class MainWindow : Window
         Dispatcher.BeginInvoke(() => RecordEvents([ev]));
     }
 
+    // ---------------- alerts (what to do about it) ----------------
+
+    private readonly ObservableCollection<AlertCard> _alerts = [];
+
+    /// <summary>
+    /// Only findings worth interrupting someone over reach this page. Everything else stays
+    /// in the events log, where it belongs.
+    /// </summary>
+    private void AddAlert(SecurityEvent ev)
+    {
+        if (ev.Severity < Severity.Medium) return;
+
+        _alerts.Insert(0, new AlertCard(ev));
+        while (_alerts.Count > 50) _alerts.RemoveAt(_alerts.Count - 1);
+        UpdateAlertsUi();
+    }
+
+    private void UpdateAlertsUi()
+    {
+        if (AlertSummary is null) return;
+
+        AlertList.ItemsSource = _alerts;
+        int serious = _alerts.Count(a => a.Event.Severity >= Severity.High);
+        AlertSummary.Text = _alerts.Count == 0
+            ? "لا تنبيهات"
+            : $"{_alerts.Count} تنبيه · {serious} يحتاج تصرفا";
+        AlertsEmpty.Visibility = _alerts.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+        AlertBadge.Visibility = serious > 0 ? Visibility.Visible : Visibility.Collapsed;
+        AlertBadgeText.Text = serious > 99 ? "99+" : serious.ToString();
+    }
+
+    private void OnClearAlerts(object sender, RoutedEventArgs e)
+    {
+        _alerts.Clear();
+        UpdateAlertsUi();
+    }
+
+    private static AlertCard? CardFrom(object sender) =>
+        (sender as FrameworkElement)?.Tag as AlertCard;
+
+    private void OnAlertLocate(object sender, RoutedEventArgs e)
+    {
+        var path = CardFrom(sender)?.Event.ImagePath;
+        if (string.IsNullOrEmpty(path)) return;
+        try
+        {
+            if (System.IO.File.Exists(path))
+                System.Diagnostics.Process.Start("explorer.exe", $"/select,\"{path}\"");
+            else
+                MessageBox.Show("الملف لم يعد موجودا في مساره.", "Meow Security",
+                    MessageBoxButton.OK, MessageBoxImage.Information);
+        }
+        catch { }
+    }
+
+    private void OnAlertKill(object sender, RoutedEventArgs e)
+    {
+        var card = CardFrom(sender);
+        if (card is null) return;
+
+        if (MessageBox.Show($"إنهاء {card.Event.Process} (رقم {card.Event.Pid})؟\n\n" +
+                            "إذا كان البرنامج يحفظ شيئا الآن فقد تفقده.",
+                "تأكيد", MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes) return;
+
+        try
+        {
+            using var p = System.Diagnostics.Process.GetProcessById(card.Event.Pid);
+            p.Kill();
+            AlertSummary.Text = $"أنهيت {card.Event.Process}";
+        }
+        catch (ArgumentException)
+        {
+            MessageBox.Show("العملية انتهت بالفعل.", "Meow Security",
+                MessageBoxButton.OK, MessageBoxImage.Information);
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show($"تعذر إنهاء العملية: {ex.Message}\n\nجرب تشغيل البرنامج بصلاحية المدير.",
+                "Meow Security", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+    }
+
+    private void OnAlertScan(object sender, RoutedEventArgs e)
+    {
+        var path = CardFrom(sender)?.Event.ImagePath;
+        if (string.IsNullOrEmpty(path)) return;
+
+        NavThreats.IsChecked = true;
+        ScanInput.Text = path;
+        OnScanInputChanged(this, new RoutedEventArgs());
+        OnAdvancedScan(this, new RoutedEventArgs());
+    }
+
     // ---------------- security events ----------------
 
     /// <summary>
@@ -400,7 +508,11 @@ public partial class MainWindow : Window
     private void LoadEventHistory()
     {
         foreach (var ev in _events.Load(500))   // already newest-first
+        {
             _eventRows.Add(new EventRow(ev));
+            if (ev.Severity >= Severity.Medium && _alerts.Count < 50) _alerts.Add(new AlertCard(ev));
+        }
+        UpdateAlertsUi();
 
         _eventsView = new ListCollectionView(_eventRows)
         {
@@ -416,7 +528,10 @@ public partial class MainWindow : Window
         if (fresh.Count == 0) return;
 
         foreach (var ev in fresh)
+        {
             _eventRows.Insert(0, new EventRow(ev));   // newest on top
+            AddAlert(ev);
+        }
 
         UpdateEventSummary();
 
@@ -853,16 +968,36 @@ public partial class MainWindow : Window
         ShowAlert($"عملية مشبوهة: {row.Name}", reason, Res("Red"));
     }
 
-    private void ShowAlert(string title, string detail, Brush accent)
+    private void ShowAlert(string title, string detail, Brush accent) =>
+        ShowAlert(title, detail, accent, serious: true);
+
+    /// <summary>
+    /// Raises an alert everywhere it should be heard.
+    ///
+    /// An in-app banner only works if the app is the thing being looked at, which for a
+    /// background monitor is the exception. So a serious finding also goes to the notification
+    /// area and, unless muted, makes a sound — the point of a monitor is to interrupt.
+    /// </summary>
+    private void ShowAlert(string title, string detail, Brush accent, bool serious)
     {
-        // With the window hidden the in-app toast would alert nobody. This is the moment the
-        // tray icon earns its keep: the same warning, delivered where the user can see it.
-        if (!IsVisible)
+        if (_settings.SystemNotifications)
         {
             EnsureTray();
-            _tray?.Notify(title, detail, serious: true);
-            return;
+            _tray?.Notify(title, detail, serious);
         }
+
+        if (_settings.AlertSound)
+        {
+            try
+            {
+                if (serious) System.Media.SystemSounds.Hand.Play();
+                else System.Media.SystemSounds.Exclamation.Play();
+            }
+            catch { /* no audio device */ }
+        }
+
+        // The window may be hidden in the tray, in which case the banner has no audience.
+        if (!IsVisible) return;
 
         ToastTitle.Text = title;
         ToastDetail.Text = detail;
@@ -891,7 +1026,7 @@ public partial class MainWindow : Window
 
     private void OnToastReview(object sender, RoutedEventArgs e)
     {
-        NavThreats.IsChecked = true;
+        NavAlerts.IsChecked = true;
         HideToast();
     }
 

@@ -301,6 +301,18 @@
                                  Content="بدء التشغيل" Checked="OnNav" Tag="autoruns" />
                     <RadioButton x:Name="NavThreats" GroupName="nav" Style="{StaticResource NavItem}"
                                  Content="التهديدات" Checked="OnNav" Tag="threats" />
+                    <RadioButton x:Name="NavAlerts" GroupName="nav" Style="{StaticResource NavItem}"
+                                 Checked="OnNav" Tag="alerts">
+                        <Grid>
+                            <TextBlock Text="التنبيهات" VerticalAlignment="Center" />
+                            <Border x:Name="AlertBadge" Visibility="Collapsed" HorizontalAlignment="Right"
+                                    VerticalAlignment="Center" Background="{StaticResource Red}"
+                                    CornerRadius="9" MinWidth="20" Padding="6,1">
+                                <TextBlock x:Name="AlertBadgeText" Text="0" Foreground="White" FontSize="11"
+                                           FontWeight="Bold" HorizontalAlignment="Center" />
+                            </Border>
+                        </Grid>
+                    </RadioButton>
                     <RadioButton x:Name="NavEvents" GroupName="nav" Style="{StaticResource NavItem}"
                                  Checked="OnNav" Tag="events">
                         <Grid>
@@ -729,6 +741,82 @@
                 </Border>
             </Grid>
 
+            <!-- === ALERTS === -->
+            <Grid x:Name="PageAlerts" Margin="28,26" Visibility="Collapsed">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+                <Grid Grid.Row="0" Margin="0,0,0,16">
+                    <TextBlock Text="التنبيهات" Foreground="{StaticResource Text}"
+                               FontSize="22" FontWeight="Bold" VerticalAlignment="Center" />
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                        <TextBlock x:Name="AlertSummary" Foreground="{StaticResource Muted}"
+                                   FontSize="12.5" VerticalAlignment="Center" Margin="0,0,14,0" />
+                        <Button Content="تعليم الكل كمقروء" Style="{StaticResource Ghost}"
+                                Click="OnClearAlerts" />
+                    </StackPanel>
+                </Grid>
+
+                <Grid Grid.Row="1">
+                    <TextBlock x:Name="AlertsEmpty" VerticalAlignment="Center" HorizontalAlignment="Center"
+                               Foreground="{StaticResource Faint}" FontSize="13.5" TextAlignment="Center"
+                               Text="لا تنبيهات تحتاج انتباهك. كل ما يرصد يسجل في صفحة الأحداث." />
+
+                    <ScrollViewer VerticalScrollBarVisibility="Auto">
+                        <ItemsControl x:Name="AlertList">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border Background="{StaticResource Card}" CornerRadius="12" Margin="0,0,0,12"
+                                            BorderBrush="{Binding Accent}" BorderThickness="1,1,4,1" Padding="20,16">
+                                        <StackPanel>
+                                            <Grid>
+                                                <TextBlock Text="{Binding Title}" Foreground="{StaticResource Text}"
+                                                           FontSize="15" FontWeight="Bold" TextWrapping="Wrap" />
+                                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right"
+                                                            VerticalAlignment="Top">
+                                                    <Border Background="{Binding Tint}" CornerRadius="5" Padding="9,2">
+                                                        <TextBlock Text="{Binding SeverityText}" Foreground="{Binding Accent}"
+                                                                   FontWeight="Bold" FontSize="11.5" />
+                                                    </Border>
+                                                    <TextBlock Text="{Binding When}" Foreground="{StaticResource Faint}"
+                                                               FontSize="11.5" VerticalAlignment="Center" Margin="10,0,0,0" />
+                                                </StackPanel>
+                                            </Grid>
+
+                                            <TextBlock Text="{Binding Means}" Foreground="{StaticResource Muted}"
+                                                       FontSize="13" TextWrapping="Wrap" Margin="0,10,0,0" />
+
+                                            <Border Background="{StaticResource Panel}" CornerRadius="9"
+                                                    Margin="0,12,0,0" Padding="14,11">
+                                                <StackPanel>
+                                                    <TextBlock Text="ماذا تفعل" Foreground="{StaticResource Brand}"
+                                                               FontSize="12" FontWeight="Bold" />
+                                                    <TextBlock Text="{Binding Do}" Foreground="{StaticResource Text}"
+                                                               FontSize="13" TextWrapping="Wrap" Margin="0,5,0,0" />
+                                                </StackPanel>
+                                            </Border>
+
+                                            <TextBlock Text="{Binding Where}" Foreground="{StaticResource Faint}"
+                                                       FontSize="11.5" TextWrapping="Wrap" Margin="0,10,0,0" />
+
+                                            <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
+                                                <Button Content="فتح موقع الملف" Style="{StaticResource Ghost}"
+                                                        Margin="0,0,8,0" Tag="{Binding}" Click="OnAlertLocate" />
+                                                <Button Content="إنهاء العملية" Style="{StaticResource Ghost}"
+                                                        Margin="0,0,8,0" Tag="{Binding}" Click="OnAlertKill" />
+                                                <Button Content="فحص متقدم" Style="{StaticResource Ghost}"
+                                                        Tag="{Binding}" Click="OnAlertScan" />
+                                            </StackPanel>
+                                        </StackPanel>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
+                </Grid>
+            </Grid>
+
             <!-- === EVENTS === -->
             <Grid x:Name="PageEvents" Margin="28,26" Visibility="Collapsed">
                 <Grid.RowDefinitions>
@@ -918,6 +1006,12 @@
                                 <Border Height="1" Background="{StaticResource Line}" Margin="0,4" />
                                 <CheckBox x:Name="ChkNotify" Style="{StaticResource Switch}"
                                           Content="الإشعارات عند ظهور عملية مشبوهة" Checked="OnPrefChanged" Unchecked="OnPrefChanged" />
+                                <Border Height="1" Background="{StaticResource Line}" Margin="0,4" />
+                                <CheckBox x:Name="ChkSystemNotify" Style="{StaticResource Switch}"
+                                          Content="إشعارات ويندوز خارج البرنامج" Checked="OnPrefChanged" Unchecked="OnPrefChanged" />
+                                <Border Height="1" Background="{StaticResource Line}" Margin="0,4" />
+                                <CheckBox x:Name="ChkSound" Style="{StaticResource Switch}"
+                                          Content="صوت مع التنبيه" Checked="OnPrefChanged" Unchecked="OnPrefChanged" />
                                 <Border Height="1" Background="{StaticResource Line}" Margin="0,4" />
                                 <CheckBox x:Name="ChkBackground" Style="{StaticResource Switch}"
                                           Content="الاستمرار بالمراقبة في الخلفية عند الإغلاق" Checked="OnPrefChanged" Unchecked="OnPrefChanged" />
