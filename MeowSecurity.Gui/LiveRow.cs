@@ -5,6 +5,8 @@ using MeowSecurity.Core.Intel;
 using MeowSecurity.Core.Live;
 using MeowSecurity.Core.Processes;
 
+using MeowSecurity.Core.Localization;
+
 namespace MeowSecurity.Gui;
 
 /// <summary>
@@ -92,9 +94,9 @@ public sealed class LiveRow : INotifyPropertyChanged
 
     public string VerdictText => _verdict switch
     {
-        Verdict.Suspicious => "مشبوه",
-        Verdict.Review => "راجعه",
-        _ => "آمن",
+        Verdict.Suspicious => Strings.T("verdict.suspicious"),
+        Verdict.Review => Strings.T("verdict.review"),
+        _ => Strings.T("verdict.safe"),
     };
 
     public Brush Accent => _verdict switch
@@ -140,13 +142,13 @@ public sealed class LiveRow : INotifyPropertyChanged
         NetDown = p.NetInBytesPerSec > 0 ? Rate(p.NetInBytesPerSec) : "";
         NetUp = p.NetOutBytesPerSec > 0 ? Rate(p.NetOutBytesPerSec) : "";
         NetTotal = p.NetInBytesPerSec + p.NetOutBytesPerSec;
-        Network = p.RemoteConnections > 0 ? $"{p.RemoteConnections} اتصال"
-                : p.Connections > 0 ? $"{p.Connections} منفذ" : "";
+        Network = p.RemoteConnections > 0 ? Strings.T("unit.connections", p.RemoteConnections)
+                : p.Connections > 0 ? Strings.T("unit.ports", p.Connections) : "";
         Signature = p.Signature switch
         {
-            SignatureState.SignedValid => "موقع",
-            SignatureState.SignedInvalid => "غير صالح",
-            SignatureState.Unsigned => "غير موقع",
+            SignatureState.SignedValid => Strings.T("signature.signed"),
+            SignatureState.SignedInvalid => Strings.T("signature.invalid"),
+            SignatureState.Unsigned => Strings.T("signature.unsigned"),
             _ => "",
         };
         Publisher = p.Publisher ?? p.Description ?? "";
@@ -169,7 +171,7 @@ public sealed class LiveRow : INotifyPropertyChanged
     private static string Bytes(long b)
     {
         if (b <= 0) return "";
-        string[] u = { "ب", "ك", "م", "غ", "ت" };
+        string[] u = { Strings.T("unit.bytes"), Strings.T("unit.kilo"), Strings.T("unit.mega"), Strings.T("unit.giga"), Strings.T("unit.tera") };
         double v = b; int i = 0;
         while (v >= 1024 && i < u.Length - 1) { v /= 1024; i++; }
         return $"{v:0.#} {u[i]}";
@@ -178,7 +180,7 @@ public sealed class LiveRow : INotifyPropertyChanged
     private static string Rate(long bps)
     {
         if (bps <= 0) return "";
-        string[] u = { "ب/ث", "ك/ث", "م/ث", "غ/ث" };
+        string[] u = { Strings.T("unit.rate.b"), Strings.T("unit.rate.k"), Strings.T("unit.rate.m"), Strings.T("unit.rate.g") };
         double v = bps; int i = 0;
         while (v >= 1024 && i < u.Length - 1) { v /= 1024; i++; }
         return $"{v:0.#} {u[i]}";

@@ -2,6 +2,8 @@ using System.Windows.Media;
 using MeowSecurity.Core.Persistence;
 using MeowSecurity.Core.Processes;
 
+using MeowSecurity.Core.Localization;
+
 namespace MeowSecurity.Gui;
 
 /// <summary>An autorun entry shaped for the grid, with a verdict badge like the process rows.</summary>
@@ -19,7 +21,7 @@ public sealed class AutorunRow(AutorunEntry e)
     public AutorunEntry Entry { get; } = e;
 
     public bool Enabled => Entry.Enabled;
-    public string EnabledText => Entry.Enabled ? "نعم" : "معطل";
+    public string EnabledText => Entry.Enabled ? Strings.T("common.yes") : Strings.T("common.disabled");
     public Brush EnabledAccent => Entry.Enabled ? Res("Muted") : Res("Faint");
 
     /// <summary>
@@ -36,16 +38,16 @@ public sealed class AutorunRow(AutorunEntry e)
 
     public string VerdictText => Verdict switch
     {
-        Verdict.Suspicious => "مشبوه",
-        Verdict.Review => "راجعه",
-        _ => "آمن",
+        Verdict.Suspicious => Strings.T("verdict.suspicious"),
+        Verdict.Review => Strings.T("verdict.review"),
+        _ => Strings.T("verdict.safe"),
     };
 
     public string SignatureText => Entry.Signature switch
     {
-        SignatureState.SignedValid => "موقع",
-        SignatureState.SignedInvalid => "غير صالح",
-        SignatureState.Unsigned => "غير موقع",
+        SignatureState.SignedValid => Strings.T("signature.signed"),
+        SignatureState.SignedInvalid => Strings.T("signature.invalid"),
+        SignatureState.Unsigned => Strings.T("signature.unsigned"),
         _ => "—",
     };
 

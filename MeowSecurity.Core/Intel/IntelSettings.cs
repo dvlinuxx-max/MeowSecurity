@@ -14,6 +14,9 @@ namespace MeowSecurity.Core.Intel;
 /// </summary>
 public sealed class IntelSettings
 {
+    /// <summary>"ar" or "en". Empty follows the Windows display language.</summary>
+    public string Language { get; set; } = "";
+
     /// <summary>"dark" or "light".</summary>
     public string Theme { get; set; } = "light";
 

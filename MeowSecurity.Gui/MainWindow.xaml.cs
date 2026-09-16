@@ -7,6 +7,7 @@ using System.Windows.Threading;
 using MeowSecurity.Core.Detect;
 using MeowSecurity.Core.Intel;
 using MeowSecurity.Core.Live;
+using MeowSecurity.Core.Localization;
 using MeowSecurity.Core.Processes;
 
 namespace MeowSecurity.Gui;
@@ -49,6 +50,10 @@ public partial class MainWindow : Window
 
         InitializeComponent();
 
+        // Arabic reads right to left, English left to right. Every alignment in the window
+        // was written to follow the flow direction, so this one line mirrors the whole layout.
+        FlowDirection = Strings.IsRightToLeft ? FlowDirection.RightToLeft : FlowDirection.LeftToRight;
+
         Grid.ItemsSource = _rows;
         LoadEventHistory();
         _threatsView = new ListCollectionView(_rows) { Filter = o => o is LiveRow r && r.IsFlagged };
@@ -67,7 +72,7 @@ public partial class MainWindow : Window
 
         // Read the version off the assembly so the about card can never drift from the build.
         var v = System.Reflection.Assembly.GetExecutingAssembly().GetName().Version;
-        AboutVersion.Text = $"الإصدار {v?.Major ?? 0}.{v?.Minor ?? 1}  ·  رخصة GPL-3.0";
+        AboutVersion.Text = Strings.T("about.version", v?.Major ?? 0, v?.Minor ?? 1);
 
         ShowPage("overview");
         Loaded += (_, _) =>
@@ -89,6 +94,7 @@ public partial class MainWindow : Window
     {
         _loadingSettings = true;
         ChkLight.IsChecked = string.Equals(_settings.Theme, "light", StringComparison.OrdinalIgnoreCase);
+        ChkEnglish.IsChecked = !Strings.IsRightToLeft;
         ChkNotify.IsChecked = _settings.Notifications;
         ChkSystemNotify.IsChecked = _settings.SystemNotifications;
         ChkSound.IsChecked = _settings.AlertSound;
@@ -99,12 +105,12 @@ public partial class MainWindow : Window
 
         if (IsElevated())
         {
-            ElevateStatus.Text = "يعمل بصلاحية المدير — رؤية كاملة لكل العمليات";
+            ElevateStatus.Text = Strings.T("elev.full");
             ElevateBtn.Visibility = Visibility.Collapsed;
         }
         else
         {
-            ElevateStatus.Text = "بعض عمليات النظام مخفية بدون صلاحية المدير";
+            ElevateStatus.Text = Strings.T("elev.limited");
             ElevateBtn.Visibility = Visibility.Visible;
         }
     }
@@ -184,7 +190,7 @@ public partial class MainWindow : Window
         _loadingSettings = false;
 
         if (result.NeedsElevation &&
-            MessageBox.Show($"{result.Message}\n\nتشغيل البرنامج بصلاحية المدير الآن؟",
+            MessageBox.Show(Strings.T("msg.elevate-now", result.Message),
                 "Meow Security", MessageBoxButton.YesNo, MessageBoxImage.Question) == MessageBoxResult.Yes)
         {
             OnElevate(this, new RoutedEventArgs());
@@ -199,8 +205,28 @@ public partial class MainWindow : Window
         bool registered = MeowSecurity.Core.Persistence.StartupRegistration.IsRegistered();
         ChkStartup.IsChecked = registered;
         StartupStatus.Text = registered
-            ? "مسجل كمهمة تعمل بصلاحية كاملة عند تسجيل الدخول"
-            : "بدونه تتوقف المراقبة عند إعادة تشغيل الجهاز حتى تفتح البرنامج بنفسك";
+            ? Strings.T("startup.on")
+            : Strings.T("startup.off");
+    }
+
+    /// <summary>
+    /// Switching language rebuilds the window, for the same reason switching theme does:
+    /// XAML resolves its strings once, when it is loaded.
+    /// </summary>
+    private void OnLanguageToggle(object sender, RoutedEventArgs e)
+    {
+        if (_loadingSettings) return;
+
+        _settings.Language = ChkEnglish.IsChecked == true ? "en" : "ar";
+        _settings.Save();
+        Strings.Language = Strings.Parse(_settings.Language);
+
+        var fresh = new MainWindow();
+        fresh.Show();
+        fresh.NavSettings.IsChecked = true;
+        _exiting = true;
+        _timer.Stop();
+        Close();
     }
 
     private void OnPrefChanged(object sender, RoutedEventArgs e)
@@ -277,8 +303,8 @@ public partial class MainWindow : Window
         if (!_toldUserAboutTray)
         {
             _toldUserAboutTray = true;
-            _tray?.Notify("Meow Security ما زال يراقب",
-                "المراقبة تعمل في الخلفية. انقر الأيقونة للعودة، أو أوقفها من قائمة اليمين.", serious: false);
+            _tray?.Notify(Strings.T("tray.still.title"),
+                Strings.T("tray.still.body"), serious: false);
         }
     }
 
@@ -286,7 +312,7 @@ public partial class MainWindow : Window
     {
         if (_tray is not null) return;
 
-        _tray = new TrayIcon("Meow Security — المراقبة تعمل");
+        _tray = new TrayIcon(Strings.T("tray.tip.on"));
         _tray.Activated += RestoreFromTray;
         _tray.ContextMenuRequested += ShowTrayMenu;
     }
@@ -303,14 +329,14 @@ public partial class MainWindow : Window
         _tray?.PrepareForMenu();
 
         var menu = new ContextMenu { Placement = System.Windows.Controls.Primitives.PlacementMode.MousePoint };
-        menu.Items.Add(Item("فتح Meow Security", RestoreFromTray));
-        menu.Items.Add(Item(_paused ? "استئناف المراقبة" : "إيقاف المراقبة مؤقتا", () =>
+        menu.Items.Add(Item(Strings.T("tray.open"), RestoreFromTray));
+        menu.Items.Add(Item(_paused ? Strings.T("tray.resume") : Strings.T("tray.pause"), () =>
         {
             OnPauseToggle(this, new RoutedEventArgs());
-            _tray?.UpdateTip(_paused ? "Meow Security — المراقبة متوقفة" : "Meow Security — المراقبة تعمل");
+            _tray?.UpdateTip(_paused ? Strings.T("tray.tip.off") : Strings.T("tray.tip.on"));
         }));
         menu.Items.Add(new Separator());
-        menu.Items.Add(Item("خروج", ExitApp));
+        menu.Items.Add(Item(Strings.T("tray.exit"), ExitApp));
         menu.IsOpen = true;
 
         static MenuItem Item(string header, Action onClick)
@@ -353,10 +379,10 @@ public partial class MainWindow : Window
         if (CaptureStatus is null) return;
         CaptureStatus.Text = _etw.State switch
         {
-            MeowSecurity.Core.Etw.EtwState.Running => "الالتقاط اللحظي يعمل — يفحص كل عملية لحظة إنشائها",
+            MeowSecurity.Core.Etw.EtwState.Running => Strings.T("etw.on"),
             MeowSecurity.Core.Etw.EtwState.NeedsElevation =>
-                "الالتقاط اللحظي متوقف — يحتاج صلاحية المدير. بدونه قد تفوت عمليات تعيش أقل من ثانية.",
-            _ => $"الالتقاط اللحظي غير متاح: {_etw.Error}",
+                Strings.T("etw.off"),
+            _ => Strings.T("etw.unavailable", _etw.Error),
         };
         CaptureStatus.Foreground = Res(_etw.State == MeowSecurity.Core.Etw.EtwState.Running ? "Green" : "Muted");
     }
@@ -404,8 +430,8 @@ public partial class MainWindow : Window
         AlertList.ItemsSource = _alerts;
         int serious = _alerts.Count(a => a.Event.Severity >= Severity.High);
         AlertSummary.Text = _alerts.Count == 0
-            ? "لا تنبيهات"
-            : $"{_alerts.Count} تنبيه · {serious} يحتاج تصرفا";
+            ? Strings.T("summary.no-alerts")
+            : Strings.T("summary.alerts", _alerts.Count, serious);
         AlertsEmpty.Visibility = _alerts.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
         AlertBadge.Visibility = serious > 0 ? Visibility.Visible : Visibility.Collapsed;
         AlertBadgeText.Text = serious > 99 ? "99+" : serious.ToString();
@@ -429,7 +455,7 @@ public partial class MainWindow : Window
             if (System.IO.File.Exists(path))
                 System.Diagnostics.Process.Start("explorer.exe", $"/select,\"{path}\"");
             else
-                MessageBox.Show("الملف لم يعد موجودا في مساره.", "Meow Security",
+                MessageBox.Show(Strings.T("msg.file-gone"), "Meow Security",
                     MessageBoxButton.OK, MessageBoxImage.Information);
         }
         catch { }
@@ -440,24 +466,24 @@ public partial class MainWindow : Window
         var card = CardFrom(sender);
         if (card is null) return;
 
-        if (MessageBox.Show($"إنهاء {card.Event.Process} (رقم {card.Event.Pid})؟\n\n" +
-                            "إذا كان البرنامج يحفظ شيئا الآن فقد تفقده.",
-                "تأكيد", MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes) return;
+        if (MessageBox.Show(Strings.T("confirm.kill.body", card.Event.Process, card.Event.Pid) +
+                            Strings.T("msg.kill-warning"),
+                Strings.T("common.confirm"), MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes) return;
 
         try
         {
             using var p = System.Diagnostics.Process.GetProcessById(card.Event.Pid);
             p.Kill();
-            AlertSummary.Text = $"أنهيت {card.Event.Process}";
+            AlertSummary.Text = Strings.T("msg.killed", card.Event.Process);
         }
         catch (ArgumentException)
         {
-            MessageBox.Show("العملية انتهت بالفعل.", "Meow Security",
+            MessageBox.Show(Strings.T("msg.already-gone"), "Meow Security",
                 MessageBoxButton.OK, MessageBoxImage.Information);
         }
         catch (Exception ex)
         {
-            MessageBox.Show($"تعذر إنهاء العملية: {ex.Message}\n\nجرب تشغيل البرنامج بصلاحية المدير.",
+            MessageBox.Show(Strings.T("msg.kill-failed", ex.Message),
                 "Meow Security", MessageBoxButton.OK, MessageBoxImage.Warning);
         }
     }
@@ -511,8 +537,8 @@ public partial class MainWindow : Window
         if (EventSummary is null) return;
         int serious = _eventRows.Count(r => r.Severity >= Severity.High);
         EventSummary.Text = _eventRows.Count == 0
-            ? "لا أحداث"
-            : $"{_eventRows.Count} حدث · {serious} خطير";
+            ? Strings.T("summary.no-events")
+            : Strings.T("summary.events", _eventRows.Count, serious);
         EventHint.Visibility = _eventRows.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
         EventBadge.Visibility = serious > 0 ? Visibility.Visible : Visibility.Collapsed;
         EventBadgeText.Text = serious > 99 ? "99+" : serious.ToString();
@@ -522,7 +548,7 @@ public partial class MainWindow : Window
 
     private void OnClearEvents(object sender, RoutedEventArgs e)
     {
-        if (MessageBox.Show("حذف كل الأحداث المسجلة نهائيا؟", "مسح السجل",
+        if (MessageBox.Show(Strings.T("confirm.clear-log"), Strings.T("btn.clear-log"),
                 MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes) return;
 
         _events.Clear();
@@ -545,7 +571,7 @@ public partial class MainWindow : Window
         _autorunsScanning = true;
         _autorunsScanned = true;
         AutorunScanBtn.IsEnabled = false;
-        AutorunSummary.Text = "جاري الفحص…";
+        AutorunSummary.Text = Strings.T("status.scanning");
         AutorunHint.Visibility = Visibility.Collapsed;
 
         var scanner = new MeowSecurity.Core.Persistence.AutorunScanner();
@@ -570,16 +596,16 @@ public partial class MainWindow : Window
         UpdateAutorunSummary(flagged);
 
         AutorunScanBtn.IsEnabled = true;
-        AutorunScanBtn.Content = "إعادة الفحص";
+        AutorunScanBtn.Content = Strings.T("btn.rescan");
         _autorunsScanning = false;
     }
 
     private void UpdateAutorunSummary(int flagged)
     {
         int hidden = AutorunShowSystem.IsChecked == true ? 0 : _autoruns.Count(r => r.IsSystem);
-        var parts = new List<string> { $"{_autoruns.Count - hidden} عنصر" };
-        parts.Add(flagged > 0 ? $"{flagged} يحتاج مراجعة" : "كلها سليمة");
-        if (hidden > 0) parts.Add($"{hidden} من مكونات ويندوز مخفية");
+        var parts = new List<string> { Strings.T("summary.autoruns", _autoruns.Count - hidden) };
+        parts.Add(flagged > 0 ? Strings.T("summary.flagged", flagged) : Strings.T("summary.all-clear"));
+        if (hidden > 0) parts.Add(Strings.T("summary.hidden", hidden));
         AutorunSummary.Text = string.Join(" · ", parts);
     }
 
@@ -618,15 +644,15 @@ public partial class MainWindow : Window
         AutorunRemoveBtn.IsEnabled = has &&
             row!.Entry.Kind is MeowSecurity.Core.Persistence.AutorunKind.RunKey
                             or MeowSecurity.Core.Persistence.AutorunKind.StartupFolder;
-        AutorunToggleBtn.Content = row?.Entry.Enabled == false ? "تفعيل" : "تعطيل";
+        AutorunToggleBtn.Content = row?.Entry.Enabled == false ? Strings.T("btn.enable") : Strings.T("btn.disable");
     }
 
     private void OnAutorunMenuOpened(object sender, RoutedEventArgs e)
     {
         var row = SelectedAutorun;
         AutorunToggleItem.Header = row?.Entry.Enabled == false
-            ? "إعادة التفعيل عند بدء التشغيل"
-            : "تعطيل من بدء التشغيل";
+            ? Strings.T("menu.enable-startup")
+            : Strings.T("menu.disable-startup");
         AutorunToggleItem.IsEnabled = row is not null;
     }
 
@@ -643,7 +669,7 @@ public partial class MainWindow : Window
             else if (System.IO.Directory.Exists(System.IO.Path.GetDirectoryName(path)))
                 System.Diagnostics.Process.Start("explorer.exe", $"\"{System.IO.Path.GetDirectoryName(path)}\"");
             else
-                MessageBox.Show("الملف والمجلد غير موجودين — المدخل يشير إلى مسار محذوف.",
+                MessageBox.Show(Strings.T("msg.path-gone"),
                     "Meow Security", MessageBoxButton.OK, MessageBoxImage.Information);
         }
         catch { }
@@ -668,15 +694,15 @@ public partial class MainWindow : Window
         if (row.Entry.Kind is MeowSecurity.Core.Persistence.AutorunKind.Service
                            or MeowSecurity.Core.Persistence.AutorunKind.ScheduledTask)
         {
-            MessageBox.Show("الخدمات والمهام المجدولة تعطل ولا تحذف — التعطيل قابل للتراجع والحذف لا.",
+            MessageBox.Show(Strings.T("msg.no-delete"),
                 "Meow Security", MessageBoxButton.OK, MessageBoxImage.Information);
             return;
         }
 
         var confirm = MessageBox.Show(
-            $"حذف \"{row.Entry.Name}\" نهائيا من بدء التشغيل؟\n\n{row.Entry.Command}\n\n" +
-            "الملف نفسه لا يحذف — يحذف المدخل الذي يشغله فقط.",
-            "تأكيد الحذف", MessageBoxButton.YesNo, MessageBoxImage.Warning);
+            Strings.T("confirm.remove.entry", row.Entry.Name, row.Entry.Command) +
+            Strings.T("msg.entry-only"),
+            Strings.T("confirm.delete.title"), MessageBoxButton.YesNo, MessageBoxImage.Warning);
         if (confirm != MessageBoxResult.Yes) return;
 
         var result = MeowSecurity.Core.Persistence.AutorunControl.Remove(row.Entry);
@@ -693,7 +719,7 @@ public partial class MainWindow : Window
         }
 
         if (result.NeedsElevation &&
-            MessageBox.Show($"{result.Message}\n\nتشغيل البرنامج بصلاحية المدير الآن؟",
+            MessageBox.Show(Strings.T("msg.elevate-now", result.Message),
                 "Meow Security", MessageBoxButton.YesNo, MessageBoxImage.Question) == MessageBoxResult.Yes)
         {
             OnElevate(this, new RoutedEventArgs());
@@ -823,7 +849,7 @@ public partial class MainWindow : Window
         NetSpark.Push(frac); NetBigGraph.Push(frac);
 
         ProcBig.Text = pulse.ProcessCount.ToString();
-        ThreadSub.Text = $"{pulse.ThreadCount} خيط";
+        ThreadSub.Text = Strings.T("unit.threads", pulse.ThreadCount);
     }
 
     private void UpdateVerdict(int suspicious, int review, int hidden)
@@ -838,20 +864,20 @@ public partial class MainWindow : Window
         if (alarm > 0)
         {
             color = Res("Red");
-            HeroTitle.Text = $"انتبه — {alarm} عنصر يحتاج تدقيقا";
-            HeroSub.Text = "افتح صفحة التهديدات لمراجعة العناصر الحمراء";
+            HeroTitle.Text = Strings.T("hero.alarm", alarm);
+            HeroSub.Text = Strings.T("hero.review");
         }
         else if (review > 0)
         {
             color = Res("Amber");
-            HeroTitle.Text = "جهازك سليم، مع عناصر للمراجعة";
-            HeroSub.Text = $"{review} عنصر بلا توقيع خارج مجلدات النظام — غالبا عادي";
+            HeroTitle.Text = Strings.T("hero.clean-review");
+            HeroSub.Text = Strings.T("hero.review-count", review);
         }
         else
         {
             color = Res("Green");
-            HeroTitle.Text = "جهازك سليم";
-            HeroSub.Text = "كل العمليات موقعة، ولا كود محقون، ولا عملية مخفية";
+            HeroTitle.Text = Strings.T("hero.clean");
+            HeroSub.Text = Strings.T("hero.clean.sub");
         }
         HeroTitle.Foreground = color;
         HeroScore.Text = score.ToString();
@@ -866,8 +892,8 @@ public partial class MainWindow : Window
     private void OnPauseToggle(object sender, RoutedEventArgs e)
     {
         _paused = !_paused;
-        PauseButton.Content = _paused ? "استئناف" : "إيقاف مؤقت";
-        LiveLabel.Text = _paused ? "المراقبة موقوفة" : "المراقبة نشطة";
+        PauseButton.Content = _paused ? Strings.T("btn.resume") : Strings.T("btn.pause");
+        LiveLabel.Text = _paused ? Strings.T("status.paused") : Strings.T("status.monitoring");
     }
 
     // ---------------- process actions (context menu) ----------------
@@ -882,7 +908,7 @@ public partial class MainWindow : Window
     private void OnSuspendProcess(object sender, RoutedEventArgs e)
     {
         if (RowFrom(sender) is { } r && !MeowSecurity.Core.Native.ProcessControl.Suspend(r.Pid))
-            MessageBox.Show(this, "تعذر الإيقاف — قد تكون عملية محمية.", "تنبيه",
+            MessageBox.Show(this, Strings.T("msg.suspend-failed"), Strings.T("common.alert"),
                 MessageBoxButton.OK, MessageBoxImage.Warning);
     }
 
@@ -895,8 +921,8 @@ public partial class MainWindow : Window
     {
         if (RowFrom(sender) is not { } r) return;
         var ask = MessageBox.Show(this,
-            $"إنهاء \"{r.Name}\" (PID {r.Pid})؟\n\nإنهاء عملية نظام قد يجعل الجهاز غير مستقر حتى إعادة التشغيل.",
-            "تأكيد الإنهاء", MessageBoxButton.YesNo, MessageBoxImage.Warning);
+            Strings.T("confirm.kill.system", r.Name, r.Pid),
+            Strings.T("confirm.kill.title"), MessageBoxButton.YesNo, MessageBoxImage.Warning);
         if (ask != MessageBoxResult.Yes) return;
         try
         {
@@ -905,7 +931,7 @@ public partial class MainWindow : Window
         }
         catch (Exception ex)
         {
-            MessageBox.Show(this, $"تعذر الإنهاء: {ex.Message}", "خطأ",
+            MessageBox.Show(this, Strings.T("msg.kill-error", ex.Message), Strings.T("common.error"),
                 MessageBoxButton.OK, MessageBoxImage.Error);
         }
     }
@@ -948,8 +974,8 @@ public partial class MainWindow : Window
         if (row.Verdict != Verdict.Suspicious) return; // only the serious ones pop up
         if (!_alerted.Add(row.Pid)) return;
 
-        var reason = string.IsNullOrEmpty(row.Reasons) ? "ظهرت عملية مشبوهة." : row.Reasons;
-        ShowAlert($"عملية مشبوهة: {row.Name}", reason, Res("Red"));
+        var reason = string.IsNullOrEmpty(row.Reasons) ? Strings.T("alert.suspicious.body") : row.Reasons;
+        ShowAlert(Strings.T("alert.suspicious", row.Name), reason, Res("Red"));
     }
 
     private void ShowAlert(string title, string detail, Brush accent) =>
@@ -1039,7 +1065,7 @@ public partial class MainWindow : Window
     private static string Bytes(long b)
     {
         if (b <= 0) return "0";
-        string[] u = { "ب", "ك", "م", "غ", "ت" };
+        string[] u = { Strings.T("unit.bytes"), Strings.T("unit.kilo"), Strings.T("unit.mega"), Strings.T("unit.giga"), Strings.T("unit.tera") };
         double v = b; int i = 0;
         while (v >= 1024 && i < u.Length - 1) { v /= 1024; i++; }
         return $"{v:0.#} {u[i]}";
@@ -1048,7 +1074,7 @@ public partial class MainWindow : Window
     private static string Rate(long bps)
     {
         if (bps <= 0) return "0";
-        string[] u = { "ب/ث", "ك/ث", "م/ث", "غ/ث" };
+        string[] u = { Strings.T("unit.rate.b"), Strings.T("unit.rate.k"), Strings.T("unit.rate.m"), Strings.T("unit.rate.g") };
         double v = bps; int i = 0;
         while (v >= 1024 && i < u.Length - 1) { v /= 1024; i++; }
         return $"{v:0.#} {u[i]}";

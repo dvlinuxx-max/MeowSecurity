@@ -1,6 +1,8 @@
 using System.Windows.Media;
 using MeowSecurity.Core.Detect;
 
+using MeowSecurity.Core.Localization;
+
 namespace MeowSecurity.Gui;
 
 /// <summary>
@@ -31,15 +33,15 @@ public sealed class AlertCard
     /// <summary>The concrete process and file behind the alert.</summary>
     public string Where =>
         string.IsNullOrEmpty(Event.ImagePath)
-            ? $"{Event.Process} (رقم {Event.Pid})"
-            : $"{Event.Process} (رقم {Event.Pid})  —  {Event.ImagePath}";
+            ? Strings.T("alert.where", Event.Process, Event.Pid)
+            : Strings.T("alert.where.path", Event.Process, Event.Pid, Event.ImagePath);
 
     public string SeverityText => Event.Severity switch
     {
-        Severity.Critical => "حرج",
-        Severity.High => "مرتفع",
-        Severity.Medium => "متوسط",
-        _ => "منخفض",
+        Severity.Critical => Strings.T("severity.critical"),
+        Severity.High => Strings.T("severity.high"),
+        Severity.Medium => Strings.T("severity.medium"),
+        _ => Strings.T("severity.low"),
     };
 
     public Brush Accent => Event.Severity switch

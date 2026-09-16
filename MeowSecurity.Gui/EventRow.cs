@@ -1,6 +1,8 @@
 using System.Windows.Media;
 using MeowSecurity.Core.Detect;
 
+using MeowSecurity.Core.Localization;
+
 namespace MeowSecurity.Gui;
 
 /// <summary>A recorded security event shaped for the timeline grid, with a severity badge.</summary>
@@ -23,7 +25,7 @@ public sealed class EventRow(SecurityEvent e)
     {
         get
         {
-            var lines = new List<string> { $"{Date} {Time}  ·  نقاط الخطورة {Score}" };
+            var lines = new List<string> { Strings.T("event.tipheader", Date, Time, Score) };
             if (!string.IsNullOrEmpty(Event.ImagePath)) lines.Add(Event.ImagePath);
             if (!string.IsNullOrEmpty(Event.CommandLine)) lines.Add(Event.CommandLine);
             lines.Add(Event.Detail);
@@ -34,11 +36,11 @@ public sealed class EventRow(SecurityEvent e)
 
     public string SeverityText => Severity switch
     {
-        Severity.Critical => "حرج",
-        Severity.High => "مرتفع",
-        Severity.Medium => "متوسط",
-        Severity.Low => "منخفض",
-        _ => "معلومة",
+        Severity.Critical => Strings.T("severity.critical"),
+        Severity.High => Strings.T("severity.high"),
+        Severity.Medium => Strings.T("severity.medium"),
+        Severity.Low => Strings.T("severity.low"),
+        _ => Strings.T("severity.info"),
     };
 
     public Brush Accent => Severity switch

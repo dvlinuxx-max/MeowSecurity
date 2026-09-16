@@ -1,5 +1,6 @@
 using System.Windows;
 using MeowSecurity.Core.Intel;
+using MeowSecurity.Core.Localization;
 
 namespace MeowSecurity.Gui;
 
@@ -24,8 +25,11 @@ public partial class App : Application
 
         try
         {
-            // Apply the saved theme to the palette before the first window binds to it.
-            ThemeManager.Apply(IntelSettings.Load().Theme);
+            // Language and palette are both resolved before the first window binds to them:
+            // XAML reads the strings once, and WPF freezes the resource brushes on use.
+            var settings = IntelSettings.Load();
+            Strings.Language = Strings.Parse(settings.Language);
+            ThemeManager.Apply(settings.Theme);
             new MainWindow().Show();
         }
         catch (Exception ex)
