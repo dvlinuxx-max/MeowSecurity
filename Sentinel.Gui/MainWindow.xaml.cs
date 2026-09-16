@@ -454,6 +454,96 @@ public partial class MainWindow : Window
         AutorunSummary.Text = string.Join(" · ", parts);
     }
 
+    /// <summary>
+    /// Acting on an autorun, not just reporting it. Disabling uses the same store Windows and
+    /// Task Manager use, so it is visible to the rest of the system and can be undone; removal
+    /// is a separate, confirmed step that keeps a record of what it deleted.
+    /// </summary>
+    private AutorunRow? SelectedAutorun => AutorunGrid.SelectedItem as AutorunRow;
+
+    private void OnAutorunMenuOpened(object sender, RoutedEventArgs e)
+    {
+        var row = SelectedAutorun;
+        AutorunToggleItem.Header = row?.Entry.Enabled == false
+            ? "إعادة التفعيل عند بدء التشغيل"
+            : "تعطيل من بدء التشغيل";
+        AutorunToggleItem.IsEnabled = row is not null;
+    }
+
+    private void OnAutorunOpenLocation(object sender, RoutedEventArgs e)
+    {
+        var path = SelectedAutorun?.Entry.ImagePath ?? SelectedAutorun?.Entry.ItemPath;
+        if (string.IsNullOrEmpty(path)) return;
+
+        try
+        {
+            // Select the file in Explorer when it exists; otherwise just open the folder.
+            if (System.IO.File.Exists(path))
+                System.Diagnostics.Process.Start("explorer.exe", $"/select,\"{path}\"");
+            else if (System.IO.Directory.Exists(System.IO.Path.GetDirectoryName(path)))
+                System.Diagnostics.Process.Start("explorer.exe", $"\"{System.IO.Path.GetDirectoryName(path)}\"");
+            else
+                MessageBox.Show("الملف والمجلد غير موجودين — المدخل يشير إلى مسار محذوف.",
+                    "Meow Security", MessageBoxButton.OK, MessageBoxImage.Information);
+        }
+        catch { }
+    }
+
+    private void OnAutorunToggle(object sender, RoutedEventArgs e)
+    {
+        var row = SelectedAutorun;
+        if (row is null) return;
+
+        bool enable = !row.Entry.Enabled;
+        var result = Sentinel.Core.Persistence.AutorunControl.SetEnabled(row.Entry, enable);
+        ReportAutorunResult(result, row.Entry.Name);
+        if (result.Ok) ScanAutoruns();
+    }
+
+    private void OnAutorunRemove(object sender, RoutedEventArgs e)
+    {
+        var row = SelectedAutorun;
+        if (row is null) return;
+
+        if (row.Entry.Kind is Sentinel.Core.Persistence.AutorunKind.Service
+                           or Sentinel.Core.Persistence.AutorunKind.ScheduledTask)
+        {
+            MessageBox.Show("الخدمات والمهام المجدولة تعطل ولا تحذف — التعطيل قابل للتراجع والحذف لا.",
+                "Meow Security", MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+
+        var confirm = MessageBox.Show(
+            $"حذف \"{row.Entry.Name}\" نهائيا من بدء التشغيل؟\n\n{row.Entry.Command}\n\n" +
+            "الملف نفسه لا يحذف — يحذف المدخل الذي يشغله فقط.",
+            "تأكيد الحذف", MessageBoxButton.YesNo, MessageBoxImage.Warning);
+        if (confirm != MessageBoxResult.Yes) return;
+
+        var result = Sentinel.Core.Persistence.AutorunControl.Remove(row.Entry);
+        ReportAutorunResult(result, row.Entry.Name);
+        if (result.Ok) ScanAutoruns();
+    }
+
+    private void ReportAutorunResult(Sentinel.Core.Persistence.ControlResult result, string name)
+    {
+        if (result.Ok)
+        {
+            AutorunSummary.Text = $"{name}: {result.Message}";
+            return;
+        }
+
+        if (result.NeedsElevation &&
+            MessageBox.Show($"{result.Message}\n\nتشغيل البرنامج بصلاحية المدير الآن؟",
+                "Meow Security", MessageBoxButton.YesNo, MessageBoxImage.Question) == MessageBoxResult.Yes)
+        {
+            OnElevate(this, new RoutedEventArgs());
+            return;
+        }
+
+        if (!result.NeedsElevation)
+            MessageBox.Show(result.Message, "Meow Security", MessageBoxButton.OK, MessageBoxImage.Warning);
+    }
+
     private void OnAutorunFilter(object sender, RoutedEventArgs e)
     {
         if (_autorunsView is null) return;

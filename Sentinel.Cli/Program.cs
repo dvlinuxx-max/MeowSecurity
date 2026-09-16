@@ -28,12 +28,36 @@ if (args.Contains("--events"))
     return;
 }
 
+// Switch one autorun on or off by name — the same code path the UI uses, so it is also how
+// the behaviour gets verified without clicking through a context menu.
+if (Array.IndexOf(args, "--autorun-off") is var offIdx and >= 0 && offIdx + 1 < args.Length ||
+    Array.IndexOf(args, "--autorun-on") is var onIdx and >= 0 && onIdx + 1 < args.Length)
+{
+    bool enable = Array.IndexOf(args, "--autorun-on") >= 0;
+    int idx = enable ? Array.IndexOf(args, "--autorun-on") : Array.IndexOf(args, "--autorun-off");
+    string target = args[idx + 1];
+
+    var match = new AutorunScanner().Scan()
+        .FirstOrDefault(x => x.Name.Equals(target, StringComparison.OrdinalIgnoreCase));
+    if (match is null)
+    {
+        Console.WriteLine($"No autorun named \"{target}\".");
+        Environment.ExitCode = 1;
+        return;
+    }
+
+    var result = AutorunControl.SetEnabled(match, enable);
+    Console.WriteLine($"{match.Location} / {match.Name}: {(result.Ok ? "OK" : "FAILED")} — {result.Message}");
+    Environment.ExitCode = result.Ok ? 0 : 1;
+    return;
+}
+
 if (args.Contains("--autoruns"))
 {
     var ar = new AutorunScanner().Scan();
     Console.WriteLine($"Autoruns — {ar.Count} entries\n" + new string('-', 78));
     foreach (var e in ar.OrderByDescending(x => (int)x.Verdict))
-        Console.WriteLine($"  [{e.Verdict,-10}] {e.Location,-16} {e.Name,-28} {e.Reason}\n" +
+        Console.WriteLine($"  [{e.Verdict,-10}] {(e.Enabled ? "on " : "OFF")} {e.Location,-16} {e.Name,-28} {e.Reason}\n" +
                           $"               {e.ImagePath}");
     return;
 }

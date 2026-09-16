@@ -15,6 +15,13 @@ public sealed class AutorunRow(AutorunEntry e)
     public Verdict Verdict { get; } = e.Verdict;
     public bool IsFlagged => Verdict != Verdict.Safe;
 
+    /// <summary>The entry behind the row, so the page can act on it.</summary>
+    public AutorunEntry Entry { get; } = e;
+
+    public bool Enabled => Entry.Enabled;
+    public string EnabledText => Entry.Enabled ? "نعم" : "معطل";
+    public Brush EnabledAccent => Entry.Enabled ? Res("Muted") : Res("Faint");
+
     /// <summary>
     /// A validly signed Windows component. There are hundreds of these — every driver and
     /// scheduled task the OS ships with — and none of them is what anyone opened this page to
@@ -34,7 +41,7 @@ public sealed class AutorunRow(AutorunEntry e)
         _ => "آمن",
     };
 
-    public string SignatureText => e.Signature switch
+    public string SignatureText => Entry.Signature switch
     {
         SignatureState.SignedValid => "موقع",
         SignatureState.SignedInvalid => "غير صالح",

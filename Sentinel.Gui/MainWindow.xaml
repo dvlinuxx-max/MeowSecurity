@@ -281,15 +281,12 @@
                 </Grid.RowDefinitions>
 
                 <!-- Brand -->
-                <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="22,26,20,30">
-                    <Image Source="sentinel.png" Width="42" Height="42" Margin="0,0,12,0"
-                           RenderOptions.BitmapScalingMode="HighQuality">
-                        <Image.Effect>
-                            <DropShadowEffect Color="#FF6A16" BlurRadius="20" ShadowDepth="0" Opacity="0.55" />
-                        </Image.Effect>
-                    </Image>
-                    <TextBlock Text="Meow Security" Foreground="{StaticResource Text}" FontFamily="{StaticResource UiDisplay}"
-                               FontSize="19" FontWeight="Bold" VerticalAlignment="Center" />
+                <StackPanel Grid.Row="0" Margin="16,28,16,30" HorizontalAlignment="Center">
+                    <Image Source="sentinel.png" Width="104" Height="104" HorizontalAlignment="Center"
+                           RenderOptions.BitmapScalingMode="HighQuality" />
+                    <TextBlock Text="Meow Security" Foreground="{StaticResource Text}"
+                               FontFamily="{StaticResource UiDisplay}" FontSize="18" FontWeight="Bold"
+                               HorizontalAlignment="Center" TextAlignment="Center" Margin="0,12,0,0" />
                 </StackPanel>
 
                 <!-- Nav -->
@@ -677,7 +674,25 @@
                                    Foreground="{StaticResource Faint}" FontSize="13.5"
                                    Text="اضغط فحص لعرض كل ما يبدأ تلقائيا مع النظام." />
                         <DataGrid x:Name="AutorunGrid">
+                            <DataGrid.ContextMenu>
+                                <ContextMenu Opened="OnAutorunMenuOpened">
+                                    <MenuItem Header="فتح موقع الملف" Click="OnAutorunOpenLocation" />
+                                    <MenuItem x:Name="AutorunToggleItem" Header="تعطيل من بدء التشغيل"
+                                              Click="OnAutorunToggle" />
+                                    <Separator />
+                                    <MenuItem Header="إزالة المدخل نهائيا" Click="OnAutorunRemove" />
+                                </ContextMenu>
+                            </DataGrid.ContextMenu>
                             <DataGrid.Columns>
+                                <DataGridTemplateColumn Header="يعمل" Width="70" SortMemberPath="Enabled">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding EnabledText}" Foreground="{Binding EnabledAccent}"
+                                                       FontSize="11.5" FontWeight="SemiBold"
+                                                       VerticalAlignment="Center" Margin="6,0" />
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
                                 <DataGridTemplateColumn Header="الحالة" Width="86" SortMemberPath="Verdict">
                                     <DataGridTemplateColumn.CellTemplate>
                                         <DataTemplate>

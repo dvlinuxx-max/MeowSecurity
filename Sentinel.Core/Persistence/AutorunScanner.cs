@@ -66,7 +66,11 @@ public sealed class AutorunScanner
                 {
                     using var key = services.OpenSubKey(name);
                     if (key is null) continue;
-                    if (key.GetValue("Start") is not int start || start > 2) continue;
+                    if (key.GetValue("Start") is not int start) continue;
+                    // Manual and disabled services are not autoruns, so they would only add
+                    // noise — except the ones we switched off, which must stay visible or the
+                    // user has no way to switch them back on.
+                    if (start > 2 && !AutorunControl.WasDisabledByUs(name)) continue;
 
                     string command = key.GetValue("ImagePath")?.ToString() ?? "";
                     if (command.Length == 0) continue;
@@ -96,6 +100,9 @@ public sealed class AutorunScanner
                         Location = driver ? "مشغل نظام" : "خدمة",
                         Command = command,
                         ImagePath = exe,
+                        Kind = AutorunKind.Service,
+                        ServiceName = name,
+                        Enabled = start <= 2,
                     });
                 }
                 catch { /* one unreadable service must not sink the scan */ }
@@ -132,7 +139,7 @@ public sealed class AutorunScanner
             {
                 try
                 {
-                    if (!task.Enabled) continue;
+                    bool enabled = task.Enabled;
                     foreach (dynamic action in task.Definition.Actions)
                     {
                         if (action.Type != 0) continue;    // TASK_ACTION_EXEC
@@ -147,6 +154,9 @@ public sealed class AutorunScanner
                             Location = "مهمة مجدولة",
                             Command = args.Length > 0 ? $"{full} {args}" : full,
                             ImagePath = Path.IsPathRooted(full) ? full : ResolveExe(full),
+                            Kind = AutorunKind.ScheduledTask,
+                            TaskPath = task.Path,
+                            Enabled = enabled,
                         });
                     }
                 }
@@ -195,6 +205,12 @@ public sealed class AutorunScanner
                     Location = label,
                     Command = command,
                     ImagePath = ResolveExe(command),
+                    Kind = AutorunKind.RunKey,
+                    Hive = hive,
+                    View = view,
+                    KeyPath = path,
+                    ValueName = name,
+                    Enabled = AutorunControl.IsRunEntryApproved(hive, name),
                 });
             }
         }
@@ -219,6 +235,9 @@ public sealed class AutorunScanner
                     Location = label,
                     Command = target,
                     ImagePath = target,
+                    Kind = AutorunKind.StartupFolder,
+                    ItemPath = file,
+                    Enabled = AutorunControl.IsStartupItemApproved(Path.GetFileName(file)),
                 });
             }
         }
