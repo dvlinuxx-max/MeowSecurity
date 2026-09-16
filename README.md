@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="MeowSecurity.Gui/sentinel.png" width="140" alt="Meow Security">
+<img src="MeowSecurity.Gui/meow-security.png" width="140" alt="Meow Security">
 
 # Meow Security
 

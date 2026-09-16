@@ -12,7 +12,7 @@ namespace MeowSecurity.Cli;
 /// stay silent. The second half matters more. A rule that flags every build script gets the
 /// whole product muted, which is a worse failure than missing a sample.
 ///
-/// Run with: <c>sentinel --rule-test</c>
+/// Run with: <c>meowsec --rule-test</c>
 /// </summary>
 internal static class RuleTest
 {

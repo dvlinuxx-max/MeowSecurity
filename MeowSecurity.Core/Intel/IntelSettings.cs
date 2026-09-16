@@ -34,33 +34,9 @@ public sealed class IntelSettings
 
     // ---- persistence ----
 
-    private static string? _configDirectory;
-
-    /// <summary>
-    /// Where settings and the event log live.
-    ///
-    /// The product was renamed, and a rename must not silently orphan someone's history, so
-    /// the first call moves an existing folder from the old name across. It runs once per
-    /// process and never overwrites a folder that is already there.
-    /// </summary>
-    public static string ConfigDirectory => _configDirectory ??= ResolveConfigDirectory();
-
-    private static string ResolveConfigDirectory()
-    {
-        string local = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-        string current = Path.Combine(local, "MeowSecurity");
-        string legacy = Path.Combine(local, "Sentinel");
-
-        try
-        {
-            if (!Directory.Exists(current) && Directory.Exists(legacy))
-                Directory.Move(legacy, current);
-        }
-        catch (IOException) { /* in use by another copy — carry on with the new folder */ }
-        catch (UnauthorizedAccessException) { }
-
-        return current;
-    }
+    /// <summary>Where settings and the event log live, under the user's own profile.</summary>
+    public static string ConfigDirectory => Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "MeowSecurity");
 
     public static string ConfigPath => Path.Combine(ConfigDirectory, "settings.json");
 

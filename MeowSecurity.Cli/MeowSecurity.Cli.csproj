@@ -7,7 +7,7 @@
     <Nullable>enable</Nullable>
     <Platforms>x64</Platforms>
     <RootNamespace>MeowSecurity.Cli</RootNamespace>
-    <AssemblyName>sentinel</AssemblyName>
+    <AssemblyName>meowsec</AssemblyName>
   </PropertyGroup>
 
   <ItemGroup>

@@ -10,7 +10,7 @@
     <RootNamespace>MeowSecurity.Gui</RootNamespace>
     <AssemblyName>MeowSecurity</AssemblyName>
     <ApplicationManifest>app.manifest</ApplicationManifest>
-    <ApplicationIcon>sentinel.ico</ApplicationIcon>
+    <ApplicationIcon>meow-security.ico</ApplicationIcon>
     <Product>Meow Security</Product>
     <Company>Mohammed Abd Alrahman</Company>
     <Copyright>Copyright (c) 2026 Mohammed Abd Alrahman — GPL-3.0</Copyright>
@@ -23,8 +23,8 @@
 
   <ItemGroup>
     <Resource Include="Fonts\*.ttf" />
-    <Resource Include="sentinel.ico" />
-    <Resource Include="sentinel.png" />
+    <Resource Include="meow-security.ico" />
+    <Resource Include="meow-security.png" />
   </ItemGroup>
 
 </Project>
