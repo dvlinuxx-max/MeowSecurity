@@ -14,9 +14,9 @@ detection, and per-process network attribution — and leaves an optional kernel
 for a distant phase.
 
 ## Layout
-- `Sentinel.Core`  — engine library, no UI. Native interop under `Native/`.
-- `Sentinel.Cli`   — command-line runner (for pros and for testing the engine).
-- `Sentinel.Gui`   — WPF UI (later).
+- `MeowSecurity.Core`  — engine library, no UI. Native interop under `Native/`.
+- `MeowSecurity.Cli`   — command-line runner (for pros and for testing the engine).
+- `MeowSecurity.Gui`   — WPF UI (later).
 
 ## Roadmap
 1. Snapshot scanner: enumerate every process via multiple methods and diff them to
@@ -35,7 +35,7 @@ for a distant phase.
 ## Build
 Requires .NET 10 SDK (installed). From the repo root:
 ```
-dotnet run --project Sentinel.Cli
+dotnet run --project MeowSecurity.Cli
 ```
 Run an elevated terminal for full visibility into other processes.
 

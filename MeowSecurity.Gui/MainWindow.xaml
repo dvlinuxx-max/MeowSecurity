@@ -1,0 +1,1072 @@
+<Window x:Class="MeowSecurity.Gui.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:local="clr-namespace:MeowSecurity.Gui"
+        Title="Meow Security" Icon="sentinel.ico" Height="840" Width="1320" MinHeight="640" MinWidth="1040"
+        FlowDirection="RightToLeft" FontFamily="{StaticResource Ui}"
+        Background="{StaticResource BgGrad}" WindowStartupLocation="CenterScreen"
+        TextOptions.TextFormattingMode="Ideal" UseLayoutRounding="True">
+
+    <Window.Resources>
+        <!-- Sidebar nav item -->
+        <Style TargetType="RadioButton" x:Key="NavItem">
+            <Setter Property="Foreground" Value="{StaticResource Muted}" />
+            <Setter Property="FontSize" Value="13.5" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Margin" Value="10,2" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="RadioButton">
+                        <Border x:Name="b" Background="Transparent" CornerRadius="8" Padding="14,10">
+                            <Grid>
+                                <Border x:Name="bar" Width="3" HorizontalAlignment="Right" Height="16"
+                                        CornerRadius="2" Background="Transparent" Margin="0,0,-11,0" />
+                                <ContentPresenter VerticalAlignment="Center" />
+                            </Grid>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="b" Property="Background" Value="{StaticResource Card}" />
+                                <Setter Property="Foreground" Value="{StaticResource Text}" />
+                            </Trigger>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="b" Property="Background" Value="{StaticResource BrandDeep}" />
+                                <Setter TargetName="bar" Property="Background" Value="{StaticResource Brand}" />
+                                <Setter Property="Foreground" Value="{StaticResource Text}" />
+                                <Setter Property="FontWeight" Value="SemiBold" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Thin meter (CPU / memory) -->
+        <Style TargetType="ProgressBar" x:Key="Meter">
+            <Setter Property="Height" Value="6" />
+            <Setter Property="Foreground" Value="{StaticResource Brand}" />
+            <Setter Property="Background" Value="{StaticResource Line}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ProgressBar">
+                        <Border Background="{TemplateBinding Background}" CornerRadius="3">
+                            <Border x:Name="PART_Indicator" Background="{TemplateBinding Foreground}"
+                                    CornerRadius="3" HorizontalAlignment="Left" />
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Ghost button (pause) -->
+        <Style TargetType="Button" x:Key="Ghost">
+            <Setter Property="Foreground" Value="{StaticResource Text}" />
+            <Setter Property="FontSize" Value="12.5" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="b" Background="{StaticResource Card}" CornerRadius="7"
+                                Padding="16,8" BorderBrush="{StaticResource Line}" BorderThickness="1">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="b" Property="BorderBrush" Value="{StaticResource Brand}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Ghost button that stays lit while it is on (events filter) -->
+        <Style TargetType="ToggleButton" x:Key="GhostToggle">
+            <Setter Property="Foreground" Value="{StaticResource Text}" />
+            <Setter Property="FontSize" Value="12.5" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ToggleButton">
+                        <Border x:Name="b" Background="{StaticResource Card}" CornerRadius="7"
+                                Padding="16,8" BorderBrush="{StaticResource Line}" BorderThickness="1">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="b" Property="BorderBrush" Value="{StaticResource Brand}" />
+                            </Trigger>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="b" Property="Background" Value="{StaticResource RedTint}" />
+                                <Setter TargetName="b" Property="BorderBrush" Value="{StaticResource Red}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Grids (shared by all three tables) -->
+        <Style TargetType="DataGrid">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Foreground" Value="{StaticResource Text}" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="RowBackground" Value="Transparent" />
+            <Setter Property="HorizontalGridLinesBrush" Value="#1A2331" />
+            <Setter Property="GridLinesVisibility" Value="Horizontal" />
+            <Setter Property="AutoGenerateColumns" Value="False" />
+            <Setter Property="IsReadOnly" Value="True" />
+            <Setter Property="HeadersVisibility" Value="Column" />
+            <Setter Property="CanUserResizeRows" Value="False" />
+            <Setter Property="SelectionMode" Value="Single" />
+            <Setter Property="RowHeight" Value="30" />
+            <Setter Property="ColumnHeaderHeight" Value="34" />
+            <Setter Property="FontSize" Value="12.5" />
+        </Style>
+        <Style TargetType="DataGridColumnHeader">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Foreground" Value="{StaticResource Faint}" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="FontSize" Value="11.5" />
+            <Setter Property="Padding" Value="10,6" />
+            <Setter Property="BorderBrush" Value="{StaticResource Line}" />
+            <Setter Property="BorderThickness" Value="0,0,0,1" />
+        </Style>
+        <Style TargetType="DataGridCell">
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Padding" Value="6,0" />
+            <Style.Triggers>
+                <Trigger Property="IsSelected" Value="True">
+                    <Setter Property="Background" Value="{StaticResource BrandDeep}" />
+                    <Setter Property="Foreground" Value="{StaticResource Text}" />
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+        <Style TargetType="DataGridRow">
+            <Setter Property="Background" Value="{Binding RowHighlight}" />
+        </Style>
+
+        <!-- Dark tooltip (path + command line on hover) -->
+        <Style TargetType="ToolTip">
+            <Setter Property="Background" Value="{StaticResource Panel}" />
+            <Setter Property="Foreground" Value="{StaticResource Text}" />
+            <Setter Property="BorderBrush" Value="{StaticResource Line}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Padding" Value="11,8" />
+            <Setter Property="MaxWidth" Value="560" />
+            <Setter Property="FontSize" Value="12" />
+        </Style>
+
+        <!-- Dark context menu. The colours alone are not enough: the stock template paints a
+             light icon gutter down the side, which shows through as a white strip on a dark
+             app, so the whole template is replaced. =====================================  -->
+        <Style TargetType="ContextMenu">
+            <Setter Property="Background" Value="{StaticResource Panel}" />
+            <Setter Property="BorderBrush" Value="{StaticResource Line}" />
+            <Setter Property="Foreground" Value="{StaticResource Text}" />
+            <Setter Property="Padding" Value="5" />
+            <Setter Property="OverridesDefaultStyle" Value="True" />
+            <Setter Property="SnapsToDevicePixels" Value="True" />
+            <Setter Property="HasDropShadow" Value="True" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ContextMenu">
+                        <Border Background="{StaticResource Panel}" CornerRadius="10"
+                                BorderBrush="{StaticResource Line}" BorderThickness="1"
+                                Padding="5" SnapsToDevicePixels="True">
+                            <Border.Effect>
+                                <DropShadowEffect Color="#000000" BlurRadius="18" ShadowDepth="3"
+                                                  Opacity="0.55" Direction="270" />
+                            </Border.Effect>
+                            <StackPanel IsItemsHost="True" KeyboardNavigation.DirectionalNavigation="Cycle" />
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style TargetType="Separator">
+            <Setter Property="Height" Value="1" />
+            <Setter Property="Margin" Value="8,5" />
+            <Setter Property="Background" Value="{StaticResource Line}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Separator">
+                        <Border Height="1" Background="{StaticResource Line}" />
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style TargetType="MenuItem">
+            <Setter Property="Foreground" Value="{StaticResource Text}" />
+            <Setter Property="FontSize" Value="12.5" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="MenuItem">
+                        <Border x:Name="b" Background="Transparent" CornerRadius="5" Padding="14,7">
+                            <ContentPresenter ContentSource="Header" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsHighlighted" Value="True">
+                                <Setter TargetName="b" Property="Background" Value="{StaticResource Card}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Toggle switch (settings) -->
+        <Style TargetType="CheckBox" x:Key="Switch">
+            <Setter Property="Foreground" Value="{StaticResource Text}" />
+            <Setter Property="FontSize" Value="13.5" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Margin" Value="0,10" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="CheckBox">
+                        <!-- The label leads (RTL start) and the switch sits at the far end,
+                             the way a settings list reads. =========================== -->
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <ContentPresenter Grid.Column="0" VerticalAlignment="Center" />
+                            <Border Grid.Column="1" x:Name="track" Width="46" Height="26" CornerRadius="13"
+                                    Margin="14,0,0,0" Background="{StaticResource Line}">
+                                <Ellipse x:Name="knob" Width="20" Height="20" Fill="{StaticResource Faint}"
+                                         HorizontalAlignment="Left" Margin="3,0" />
+                            </Border>
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="track" Property="Background" Value="{StaticResource Brand}" />
+                                <Setter TargetName="knob" Property="Fill" Value="White" />
+                                <Setter TargetName="knob" Property="HorizontalAlignment" Value="Right" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Masked key field -->
+        <Style TargetType="PasswordBox" x:Key="KeyBox">
+            <Setter Property="Background" Value="{StaticResource CardAlt}" />
+            <Setter Property="Foreground" Value="{StaticResource Text}" />
+            <Setter Property="CaretBrush" Value="{StaticResource Brand}" />
+            <Setter Property="BorderBrush" Value="{StaticResource Line}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Padding" Value="11,9" />
+            <Setter Property="FontSize" Value="12.5" />
+        </Style>
+    </Window.Resources>
+
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="216" />
+            <ColumnDefinition Width="*" />
+        </Grid.ColumnDefinitions>
+
+        <!-- ======================= SIDEBAR (right side, RTL) ======================= -->
+        <Border Grid.Column="0" Background="{StaticResource Panel}"
+                BorderBrush="{StaticResource Line}" BorderThickness="1,0,0,0">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <!-- Brand -->
+                <StackPanel Grid.Row="0" Margin="16,28,16,30" HorizontalAlignment="Center">
+                    <Image Source="sentinel.png" Width="104" Height="104" HorizontalAlignment="Center"
+                           RenderOptions.BitmapScalingMode="HighQuality" />
+                    <TextBlock Text="Meow Security" Foreground="{StaticResource Text}"
+                               FontFamily="{StaticResource UiDisplay}" FontSize="18" FontWeight="Bold"
+                               HorizontalAlignment="Center" TextAlignment="Center" Margin="0,12,0,0" />
+                </StackPanel>
+
+                <!-- Nav -->
+                <StackPanel Grid.Row="1">
+                    <RadioButton x:Name="NavOverview" GroupName="nav" Style="{StaticResource NavItem}"
+                                 Content="نظرة عامة" IsChecked="True" Checked="OnNav" Tag="overview" />
+                    <RadioButton x:Name="NavProcesses" GroupName="nav" Style="{StaticResource NavItem}"
+                                 Content="العمليات" Checked="OnNav" Tag="processes" />
+                    <RadioButton x:Name="NavNetwork" GroupName="nav" Style="{StaticResource NavItem}"
+                                 Content="الشبكة" Checked="OnNav" Tag="network" />
+                    <RadioButton x:Name="NavAutoruns" GroupName="nav" Style="{StaticResource NavItem}"
+                                 Content="بدء التشغيل" Checked="OnNav" Tag="autoruns" />
+                    <RadioButton x:Name="NavThreats" GroupName="nav" Style="{StaticResource NavItem}"
+                                 Content="التهديدات" Checked="OnNav" Tag="threats" />
+                    <RadioButton x:Name="NavAlerts" GroupName="nav" Style="{StaticResource NavItem}"
+                                 Checked="OnNav" Tag="alerts">
+                        <Grid>
+                            <TextBlock Text="التنبيهات" VerticalAlignment="Center" />
+                            <Border x:Name="AlertBadge" Visibility="Collapsed" HorizontalAlignment="Right"
+                                    VerticalAlignment="Center" Background="{StaticResource Red}"
+                                    CornerRadius="9" MinWidth="20" Padding="6,1">
+                                <TextBlock x:Name="AlertBadgeText" Text="0" Foreground="White" FontSize="11"
+                                           FontWeight="Bold" HorizontalAlignment="Center" />
+                            </Border>
+                        </Grid>
+                    </RadioButton>
+                    <RadioButton x:Name="NavEvents" GroupName="nav" Style="{StaticResource NavItem}"
+                                 Checked="OnNav" Tag="events">
+                        <Grid>
+                            <TextBlock Text="الأحداث" VerticalAlignment="Center" />
+                            <Border x:Name="EventBadge" Visibility="Collapsed" HorizontalAlignment="Right"
+                                    VerticalAlignment="Center" Background="{StaticResource Red}"
+                                    CornerRadius="9" MinWidth="20" Padding="6,1">
+                                <TextBlock x:Name="EventBadgeText" Text="0" Foreground="White" FontSize="11"
+                                           FontWeight="Bold" HorizontalAlignment="Center" />
+                            </Border>
+                        </Grid>
+                    </RadioButton>
+                    <RadioButton x:Name="NavSettings" GroupName="nav" Style="{StaticResource NavItem}"
+                                 Content="الإعدادات" Checked="OnNav" Tag="settings" />
+                </StackPanel>
+
+                <!-- Live indicator -->
+                <StackPanel Grid.Row="3" Orientation="Horizontal" Margin="24,0,24,22">
+                    <Ellipse x:Name="LiveDot" Width="9" Height="9" Fill="{StaticResource Green}"
+                             VerticalAlignment="Center" Margin="0,0,9,0">
+                        <Ellipse.Triggers>
+                            <EventTrigger RoutedEvent="FrameworkElement.Loaded">
+                                <BeginStoryboard>
+                                    <Storyboard RepeatBehavior="Forever" AutoReverse="True">
+                                        <DoubleAnimation Storyboard.TargetProperty="Opacity"
+                                                         From="1" To="0.25" Duration="0:0:1.1" />
+                                    </Storyboard>
+                                </BeginStoryboard>
+                            </EventTrigger>
+                        </Ellipse.Triggers>
+                    </Ellipse>
+                    <TextBlock x:Name="LiveLabel" Text="المراقبة نشطة" Foreground="{StaticResource Muted}"
+                               FontSize="12" VerticalAlignment="Center" />
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- ======================= CONTENT ======================= -->
+        <Grid Grid.Column="1">
+
+            <!-- === OVERVIEW === -->
+            <Grid x:Name="PageOverview" Margin="28,26">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+
+                <!-- Hero: the protection dial carries the whole posture at a glance -->
+                <Border Grid.Row="0" Background="{StaticResource HeroWash}" CornerRadius="18"
+                        BorderBrush="{StaticResource Line}" BorderThickness="1" Padding="32,24">
+                    <Border.Effect>
+                        <DropShadowEffect Color="#000000" BlurRadius="28" ShadowDepth="0" Opacity="0.45" />
+                    </Border.Effect>
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+
+                        <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                            <TextBlock Text="حالة الحماية" Foreground="{StaticResource Brand}"
+                                       FontSize="13" FontWeight="SemiBold" />
+                            <TextBlock x:Name="HeroTitle" Text="جاري بدء المراقبة…" FontFamily="{StaticResource UiDisplay}"
+                                       Foreground="{StaticResource Text}" FontSize="32" FontWeight="Bold" Margin="0,6,0,0" />
+                            <TextBlock x:Name="HeroSub" Text="نفحص العمليات وتواقيعها وذاكرتها واتصالاتها"
+                                       Foreground="{StaticResource Muted}" FontSize="13.5" Margin="0,7,0,0" />
+                        </StackPanel>
+
+                        <Grid Grid.Column="1" Width="188" Height="188" Margin="34,0,0,0">
+                            <local:ShieldGauge x:Name="Shield" Accent="{StaticResource Brand}"
+                                               Track="{StaticResource Line}">
+                                <local:ShieldGauge.Effect>
+                                    <DropShadowEffect Color="#FF6A16" BlurRadius="30" ShadowDepth="0" Opacity="0.45" />
+                                </local:ShieldGauge.Effect>
+                            </local:ShieldGauge>
+                            <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" FlowDirection="LeftToRight">
+                                <TextBlock x:Name="HeroScore" Text="—" FontFamily="{StaticResource UiDisplay}"
+                                           Foreground="{StaticResource Text}" FontSize="54" FontWeight="Bold"
+                                           HorizontalAlignment="Center" />
+                                <TextBlock Text="نقطة الحماية" Foreground="{StaticResource Muted}" FontSize="12"
+                                           HorizontalAlignment="Center" Margin="0,-8,0,0" />
+                            </StackPanel>
+                        </Grid>
+                    </Grid>
+                </Border>
+
+                <!-- Live readouts (four distinct treatments, not identical cards) -->
+                <Grid Grid.Row="1" Margin="0,16,0,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="14" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="14" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="14" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+
+                    <!-- CPU: number + meter -->
+                    <Border Grid.Column="0" Background="{StaticResource Card}" CornerRadius="12"
+                            BorderBrush="{StaticResource Line}" BorderThickness="1" Padding="18,16">
+                        <StackPanel FlowDirection="LeftToRight">
+                            <TextBlock Text="المعالج" Foreground="{StaticResource Muted}" FontSize="12.5"
+                                       HorizontalAlignment="Right" />
+                            <TextBlock x:Name="CpuBig" Text="0%" Foreground="{StaticResource Text}"
+                                       FontSize="30" FontWeight="Bold" Margin="0,4,0,12" HorizontalAlignment="Right" />
+                            <ProgressBar x:Name="CpuMeter" Style="{StaticResource Meter}"
+                                         Foreground="{StaticResource Brand}" Value="0" />
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Memory: number + sub + meter -->
+                    <Border Grid.Column="2" Background="{StaticResource Card}" CornerRadius="12"
+                            BorderBrush="{StaticResource Line}" BorderThickness="1" Padding="18,16">
+                        <StackPanel FlowDirection="LeftToRight">
+                            <Grid>
+                                <TextBlock Text="الذاكرة" Foreground="{StaticResource Muted}" FontSize="12.5"
+                                           HorizontalAlignment="Right" />
+                                <TextBlock x:Name="MemDetail" Text="" Foreground="{StaticResource Faint}"
+                                           FontSize="11.5" HorizontalAlignment="Left" />
+                            </Grid>
+                            <TextBlock x:Name="MemBig" Text="0%" Foreground="{StaticResource Text}"
+                                       FontSize="30" FontWeight="Bold" Margin="0,4,0,12" HorizontalAlignment="Right" />
+                            <ProgressBar x:Name="MemMeter" Style="{StaticResource Meter}"
+                                         Foreground="{StaticResource Amber}" Value="0" />
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Network: down/up on top, wave in its own strip below (no overlap) -->
+                    <Border Grid.Column="4" Background="{StaticResource Card}" CornerRadius="12"
+                            BorderBrush="{StaticResource Line}" BorderThickness="1" Padding="18,16">
+                        <Grid FlowDirection="LeftToRight">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="*" />
+                            </Grid.RowDefinitions>
+                            <TextBlock Grid.Row="0" Text="الشبكة" Foreground="{StaticResource Muted}" FontSize="12.5" />
+                            <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,8,0,0">
+                                <TextBlock x:Name="NetDown" Text="↓ 0" Foreground="{StaticResource NetIn}"
+                                           FontSize="18" FontWeight="Bold" Margin="0,0,16,0" />
+                                <TextBlock x:Name="NetUp" Text="↑ 0" Foreground="{StaticResource NetOut}"
+                                           FontSize="18" FontWeight="Bold" />
+                            </StackPanel>
+                            <local:Sparkline x:Name="NetSpark" Grid.Row="2" Height="34" VerticalAlignment="Bottom"
+                                             Margin="0,10,0,0" />
+                        </Grid>
+                    </Border>
+
+                    <!-- Processes: big count -->
+                    <Border Grid.Column="6" Background="{StaticResource Card}" CornerRadius="12"
+                            BorderBrush="{StaticResource Line}" BorderThickness="1" Padding="18,16">
+                        <StackPanel FlowDirection="LeftToRight">
+                            <TextBlock Text="العمليات النشطة" Foreground="{StaticResource Muted}" FontSize="12.5"
+                                       HorizontalAlignment="Right" />
+                            <TextBlock x:Name="ProcBig" Text="0" Foreground="{StaticResource Text}"
+                                       FontSize="30" FontWeight="Bold" Margin="0,4,0,0" HorizontalAlignment="Right" />
+                            <TextBlock x:Name="ThreadSub" Text="" Foreground="{StaticResource Faint}"
+                                       FontSize="11.5" HorizontalAlignment="Right" />
+                        </StackPanel>
+                    </Border>
+                </Grid>
+
+                <!-- Attention list -->
+                <Border Grid.Row="2" Background="{StaticResource Card}" CornerRadius="12" Margin="0,16,0,0"
+                        BorderBrush="{StaticResource Line}" BorderThickness="1">
+                    <Grid Margin="22,18">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                        </Grid.RowDefinitions>
+                        <TextBlock Grid.Row="0" Text="يحتاج انتباهك" Foreground="{StaticResource Text}"
+                                   FontSize="15" FontWeight="SemiBold" />
+                        <TextBlock x:Name="AttentionEmpty" Grid.Row="1" VerticalAlignment="Center"
+                                   HorizontalAlignment="Center" Foreground="{StaticResource Faint}" FontSize="13"
+                                   Text="لا شيء يحتاج انتباهك الآن — كل العمليات موقعة ولا كود محقون." />
+                        <ScrollViewer Grid.Row="1" Margin="0,12,0,0" VerticalScrollBarVisibility="Auto">
+                            <ItemsControl x:Name="AttentionList">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border Background="{Binding Tint}" CornerRadius="9" Padding="14,10" Margin="0,0,0,8">
+                                            <Grid>
+                                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                                                    <Ellipse Width="9" Height="9" Fill="{Binding Accent}"
+                                                             VerticalAlignment="Center" Margin="0,0,12,0" />
+                                                    <TextBlock Text="{Binding Name}" Foreground="{StaticResource Text}"
+                                                               FontWeight="SemiBold" FontSize="13.5" VerticalAlignment="Center" />
+                                                    <TextBlock Text="{Binding Reasons}" Foreground="{StaticResource Muted}"
+                                                               FontSize="12.5" VerticalAlignment="Center" Margin="12,0,0,0" />
+                                                </StackPanel>
+                                                <TextBlock Text="{Binding VerdictText}" Foreground="{Binding Accent}"
+                                                           FontWeight="Bold" FontSize="12.5" HorizontalAlignment="Left"
+                                                           VerticalAlignment="Center" />
+                                            </Grid>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </ScrollViewer>
+                    </Grid>
+                </Border>
+            </Grid>
+
+            <!-- === PROCESSES === -->
+            <Grid x:Name="PageProcesses" Margin="28,26" Visibility="Collapsed">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+                <Grid Grid.Row="0" Margin="0,0,0,16">
+                    <TextBlock Text="العمليات الحية" Foreground="{StaticResource Text}"
+                               FontSize="20" FontWeight="Bold" VerticalAlignment="Center" />
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                        <Border Background="{StaticResource Card}" CornerRadius="7" Width="230"
+                                BorderBrush="{StaticResource Line}" BorderThickness="1" Padding="10,0" Margin="0,0,10,0">
+                            <Grid>
+                                <TextBlock x:Name="SearchHint" Text="ابحث باسم العملية أو رقمها…"
+                                           Foreground="{StaticResource Faint}" VerticalAlignment="Center"
+                                           IsHitTestVisible="False" FontSize="12.5" />
+                                <TextBox x:Name="Search" Background="Transparent" BorderThickness="0"
+                                         Foreground="{StaticResource Text}" VerticalAlignment="Center"
+                                         CaretBrush="{StaticResource Brand}" FontSize="12.5" Height="32"
+                                         TextChanged="OnSearchChanged" />
+                            </Grid>
+                        </Border>
+                        <Button x:Name="PauseButton" Content="إيقاف مؤقت" Style="{StaticResource Ghost}"
+                                Click="OnPauseToggle" />
+                    </StackPanel>
+                </Grid>
+
+                <Border Grid.Row="1" Background="{StaticResource Card}" CornerRadius="12"
+                        BorderBrush="{StaticResource Line}" BorderThickness="1" Padding="6,2">
+                    <DataGrid x:Name="Grid">
+                        <DataGrid.ContextMenu>
+                            <ContextMenu>
+                                <MenuItem Header="إيقاف مؤقت" Click="OnSuspendProcess" />
+                                <MenuItem Header="استئناف" Click="OnResumeProcess" />
+                                <MenuItem Header="إنهاء العملية" Click="OnKillProcess"
+                                          Foreground="{StaticResource Red}" />
+                                <MenuItem Header="فتح موقع الملف" Click="OnOpenLocation" />
+                                <MenuItem Header="نسخ الاسم" Click="OnCopyName" />
+                            </ContextMenu>
+                        </DataGrid.ContextMenu>
+                        <DataGrid.Columns>
+                            <DataGridTemplateColumn Header="الحالة" Width="82" SortMemberPath="Verdict">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <Border Background="{Binding Tint}" CornerRadius="5" Padding="9,2"
+                                                HorizontalAlignment="Right" Margin="4,0">
+                                            <TextBlock Text="{Binding VerdictText}" Foreground="{Binding Accent}"
+                                                       FontWeight="Bold" FontSize="11.5" />
+                                        </Border>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+                            <DataGridTextColumn Header="العملية" Binding="{Binding Name}" Width="200">
+                                <DataGridTextColumn.ElementStyle>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="Foreground" Value="{Binding NameColor}" />
+                                        <Setter Property="FontWeight" Value="SemiBold" />
+                                        <Setter Property="VerticalAlignment" Value="Center" />
+                                        <Setter Property="ToolTip" Value="{Binding Tooltip}" />
+                                    </Style>
+                                </DataGridTextColumn.ElementStyle>
+                            </DataGridTextColumn>
+                            <DataGridTextColumn Header="PID" Binding="{Binding Pid}" Width="60" SortMemberPath="Pid" />
+                            <DataGridTextColumn Header="المعالج" Binding="{Binding Cpu}" Width="70" SortMemberPath="CpuValue">
+                                <DataGridTextColumn.ElementStyle>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="Foreground" Value="{StaticResource Brand}" />
+                                        <Setter Property="FontWeight" Value="SemiBold" />
+                                    </Style>
+                                </DataGridTextColumn.ElementStyle>
+                            </DataGridTextColumn>
+                            <DataGridTextColumn Header="الذاكرة" Binding="{Binding PrivateText}" Width="84" SortMemberPath="PrivateBytes" />
+                            <DataGridTextColumn Header="خيوط" Binding="{Binding Threads}" Width="54" SortMemberPath="Threads" />
+                            <DataGridTextColumn Header="إدخال/إخراج" Binding="{Binding Io}" Width="90" SortMemberPath="IoValue" />
+                            <DataGridTextColumn Header="الشبكة" Binding="{Binding Network}" Width="90" SortMemberPath="RemoteConns" />
+                            <DataGridTextColumn Header="التوقيع" Binding="{Binding Signature}" Width="86" />
+                            <DataGridTextColumn Header="الناشر" Binding="{Binding Publisher}" Width="196" />
+                            <DataGridTextColumn Header="السبب" Binding="{Binding Reasons}" Width="*" />
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </Border>
+            </Grid>
+
+            <!-- === NETWORK === -->
+            <Grid x:Name="PageNetwork" Margin="28,26" Visibility="Collapsed">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+                <TextBlock Grid.Row="0" Text="حركة الشبكة" Foreground="{StaticResource Text}"
+                           FontSize="20" FontWeight="Bold" Margin="0,0,0,16" />
+
+                <Border Grid.Row="1" Background="{StaticResource Card}" CornerRadius="12"
+                        BorderBrush="{StaticResource Line}" BorderThickness="1" Padding="22,18" Height="150">
+                    <Grid FlowDirection="LeftToRight">
+                        <StackPanel VerticalAlignment="Top">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock x:Name="NetDownBig" Text="↓ 0" Foreground="{StaticResource NetIn}"
+                                           FontSize="22" FontWeight="Bold" Margin="0,0,18,0" />
+                                <TextBlock x:Name="NetUpBig" Text="↑ 0" Foreground="{StaticResource NetOut}"
+                                           FontSize="22" FontWeight="Bold" />
+                            </StackPanel>
+                            <TextBlock Text="عبر كل الواجهات النشطة" Foreground="{StaticResource Faint}"
+                                       FontSize="11.5" Margin="0,4,0,0" />
+                        </StackPanel>
+                        <local:Sparkline x:Name="NetBigGraph" VerticalAlignment="Stretch" Margin="0,8,0,0" />
+                    </Grid>
+                </Border>
+
+                <Border Grid.Row="2" Background="{StaticResource Card}" CornerRadius="12" Margin="0,16,0,0"
+                        BorderBrush="{StaticResource Line}" BorderThickness="1" Padding="6,2">
+                    <DataGrid x:Name="NetGrid">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="العملية" Binding="{Binding Name}" Width="230">
+                                <DataGridTextColumn.ElementStyle>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="Foreground" Value="{Binding NameColor}" />
+                                        <Setter Property="FontWeight" Value="SemiBold" />
+                                        <Setter Property="VerticalAlignment" Value="Center" />
+                                    </Style>
+                                </DataGridTextColumn.ElementStyle>
+                            </DataGridTextColumn>
+                            <DataGridTextColumn Header="PID" Binding="{Binding Pid}" Width="66" />
+                            <DataGridTextColumn Header="تنزيل" Binding="{Binding NetDown}" Width="100"
+                                                SortMemberPath="NetTotal">
+                                <DataGridTextColumn.ElementStyle>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="Foreground" Value="{StaticResource NetIn}" />
+                                        <Setter Property="VerticalAlignment" Value="Center" />
+                                    </Style>
+                                </DataGridTextColumn.ElementStyle>
+                            </DataGridTextColumn>
+                            <DataGridTextColumn Header="رفع" Binding="{Binding NetUp}" Width="100"
+                                                SortMemberPath="NetTotal">
+                                <DataGridTextColumn.ElementStyle>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="Foreground" Value="{StaticResource NetOut}" />
+                                        <Setter Property="VerticalAlignment" Value="Center" />
+                                    </Style>
+                                </DataGridTextColumn.ElementStyle>
+                            </DataGridTextColumn>
+                            <DataGridTextColumn Header="الاتصالات" Binding="{Binding Network}" Width="120" SortMemberPath="RemoteConns" />
+                            <DataGridTextColumn Header="التوقيع" Binding="{Binding Signature}" Width="100" />
+                            <DataGridTextColumn Header="الناشر" Binding="{Binding Publisher}" Width="*" />
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </Border>
+            </Grid>
+
+            <!-- === AUTORUNS === -->
+            <Grid x:Name="PageAutoruns" Margin="28,26" Visibility="Collapsed">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+                <Grid Grid.Row="0" Margin="0,0,0,16">
+                    <TextBlock Text="بدء التشغيل" Foreground="{StaticResource Text}"
+                               FontSize="22" FontWeight="Bold" VerticalAlignment="Center" />
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                        <TextBlock x:Name="AutorunSummary" Text="" Foreground="{StaticResource Muted}"
+                                   FontSize="12.5" VerticalAlignment="Center" Margin="0,0,14,0" />
+                        <Button x:Name="AutorunLocateBtn" Content="فتح الموقع" Style="{StaticResource Ghost}"
+                                Margin="0,0,8,0" IsEnabled="False" Click="OnAutorunOpenLocation" />
+                        <Button x:Name="AutorunToggleBtn" Content="تعطيل" Style="{StaticResource Ghost}"
+                                Margin="0,0,8,0" IsEnabled="False" Click="OnAutorunToggle" />
+                        <Button x:Name="AutorunRemoveBtn" Content="إزالة" Style="{StaticResource Ghost}"
+                                Margin="0,0,16,0" IsEnabled="False" Click="OnAutorunRemove" />
+                        <ToggleButton x:Name="AutorunShowSystem" Style="{StaticResource GhostToggle}"
+                                      Content="إظهار عناصر النظام" Margin="0,0,8,0"
+                                      Checked="OnAutorunFilter" Unchecked="OnAutorunFilter" />
+                        <Button x:Name="AutorunScanBtn" Content="فحص" Style="{StaticResource Ghost}"
+                                Click="OnScanAutoruns" />
+                    </StackPanel>
+                </Grid>
+                <Border Grid.Row="1" Background="{StaticResource Card}" CornerRadius="12"
+                        BorderBrush="{StaticResource Line}" BorderThickness="1" Padding="6,2">
+                    <Grid>
+                        <TextBlock x:Name="AutorunHint" VerticalAlignment="Center" HorizontalAlignment="Center"
+                                   Foreground="{StaticResource Faint}" FontSize="13.5"
+                                   Text="اضغط فحص لعرض كل ما يبدأ تلقائيا مع النظام. اختر مدخلا لتعطيله أو فتح موقعه." />
+                        <DataGrid x:Name="AutorunGrid" SelectionChanged="OnAutorunSelectionChanged"
+                                  PreviewMouseRightButtonDown="OnAutorunRightClick">
+                            <DataGrid.ContextMenu>
+                                <ContextMenu Opened="OnAutorunMenuOpened">
+                                    <MenuItem Header="فتح موقع الملف" Click="OnAutorunOpenLocation" />
+                                    <MenuItem x:Name="AutorunToggleItem" Header="تعطيل من بدء التشغيل"
+                                              Click="OnAutorunToggle" />
+                                    <Separator />
+                                    <MenuItem Header="إزالة المدخل نهائيا" Click="OnAutorunRemove" />
+                                </ContextMenu>
+                            </DataGrid.ContextMenu>
+                            <DataGrid.Columns>
+                                <DataGridTemplateColumn Header="يعمل" Width="70" SortMemberPath="Enabled">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding EnabledText}" Foreground="{Binding EnabledAccent}"
+                                                       FontSize="11.5" FontWeight="SemiBold"
+                                                       VerticalAlignment="Center" Margin="6,0" />
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+                                <DataGridTemplateColumn Header="الحالة" Width="86" SortMemberPath="Verdict">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <Border Background="{Binding Tint}" CornerRadius="5" Padding="9,2"
+                                                    HorizontalAlignment="Right" Margin="4,0">
+                                                <TextBlock Text="{Binding VerdictText}" Foreground="{Binding Accent}"
+                                                           FontWeight="Bold" FontSize="11.5" />
+                                            </Border>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+                                <DataGridTextColumn Header="الاسم" Binding="{Binding Name}" Width="170">
+                                    <DataGridTextColumn.ElementStyle>
+                                        <Style TargetType="TextBlock">
+                                            <Setter Property="FontWeight" Value="SemiBold" />
+                                            <Setter Property="VerticalAlignment" Value="Center" />
+                                        </Style>
+                                    </DataGridTextColumn.ElementStyle>
+                                </DataGridTextColumn>
+                                <DataGridTextColumn Header="الموقع" Binding="{Binding Location}" Width="130" />
+                                <DataGridTextColumn Header="التوقيع" Binding="{Binding SignatureText}" Width="86" />
+                                <DataGridTextColumn Header="الناشر" Binding="{Binding Publisher}" Width="180" />
+                                <DataGridTextColumn Header="المسار" Binding="{Binding Path}" Width="*" />
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </Grid>
+                </Border>
+            </Grid>
+
+            <!-- === ALERTS === -->
+            <Grid x:Name="PageAlerts" Margin="28,26" Visibility="Collapsed">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+                <Grid Grid.Row="0" Margin="0,0,0,16">
+                    <TextBlock Text="التنبيهات" Foreground="{StaticResource Text}"
+                               FontSize="22" FontWeight="Bold" VerticalAlignment="Center" />
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                        <TextBlock x:Name="AlertSummary" Foreground="{StaticResource Muted}"
+                                   FontSize="12.5" VerticalAlignment="Center" Margin="0,0,14,0" />
+                        <Button Content="تعليم الكل كمقروء" Style="{StaticResource Ghost}"
+                                Click="OnClearAlerts" />
+                    </StackPanel>
+                </Grid>
+
+                <Grid Grid.Row="1">
+                    <TextBlock x:Name="AlertsEmpty" VerticalAlignment="Center" HorizontalAlignment="Center"
+                               Foreground="{StaticResource Faint}" FontSize="13.5" TextAlignment="Center"
+                               Text="لا تنبيهات تحتاج انتباهك. كل ما يرصد يسجل في صفحة الأحداث." />
+
+                    <ScrollViewer VerticalScrollBarVisibility="Auto">
+                        <ItemsControl x:Name="AlertList">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border Background="{StaticResource Card}" CornerRadius="12" Margin="0,0,0,12"
+                                            BorderBrush="{Binding Accent}" BorderThickness="1,1,4,1" Padding="20,16">
+                                        <StackPanel>
+                                            <Grid>
+                                                <TextBlock Text="{Binding Title}" Foreground="{StaticResource Text}"
+                                                           FontSize="15" FontWeight="Bold" TextWrapping="Wrap" />
+                                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right"
+                                                            VerticalAlignment="Top">
+                                                    <Border Background="{Binding Tint}" CornerRadius="5" Padding="9,2">
+                                                        <TextBlock Text="{Binding SeverityText}" Foreground="{Binding Accent}"
+                                                                   FontWeight="Bold" FontSize="11.5" />
+                                                    </Border>
+                                                    <TextBlock Text="{Binding When}" Foreground="{StaticResource Faint}"
+                                                               FontSize="11.5" VerticalAlignment="Center" Margin="10,0,0,0" />
+                                                </StackPanel>
+                                            </Grid>
+
+                                            <TextBlock Text="{Binding Means}" Foreground="{StaticResource Muted}"
+                                                       FontSize="13" TextWrapping="Wrap" Margin="0,10,0,0" />
+
+                                            <Border Background="{StaticResource Panel}" CornerRadius="9"
+                                                    Margin="0,12,0,0" Padding="14,11">
+                                                <StackPanel>
+                                                    <TextBlock Text="ماذا تفعل" Foreground="{StaticResource Brand}"
+                                                               FontSize="12" FontWeight="Bold" />
+                                                    <TextBlock Text="{Binding Do}" Foreground="{StaticResource Text}"
+                                                               FontSize="13" TextWrapping="Wrap" Margin="0,5,0,0" />
+                                                </StackPanel>
+                                            </Border>
+
+                                            <TextBlock Text="{Binding Where}" Foreground="{StaticResource Faint}"
+                                                       FontSize="11.5" TextWrapping="Wrap" Margin="0,10,0,0" />
+
+                                            <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
+                                                <Button Content="فتح موقع الملف" Style="{StaticResource Ghost}"
+                                                        Margin="0,0,8,0" Tag="{Binding}" Click="OnAlertLocate" />
+                                                <Button Content="إنهاء العملية" Style="{StaticResource Ghost}"
+                                                        Margin="0,0,8,0" Tag="{Binding}" Click="OnAlertKill" />
+                                            </StackPanel>
+                                        </StackPanel>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
+                </Grid>
+            </Grid>
+
+            <!-- === EVENTS === -->
+            <Grid x:Name="PageEvents" Margin="28,26" Visibility="Collapsed">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+                <Grid Grid.Row="0" Margin="0,0,0,16">
+                    <TextBlock Text="سجل الأحداث" Foreground="{StaticResource Text}"
+                               FontSize="22" FontWeight="Bold" VerticalAlignment="Center" />
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                        <TextBlock x:Name="EventSummary" Text="" Foreground="{StaticResource Muted}"
+                                   FontSize="12.5" VerticalAlignment="Center" Margin="0,0,14,0" />
+                        <ToggleButton x:Name="EventOnlySerious" Style="{StaticResource GhostToggle}"
+                                      Content="الخطير فقط" Checked="OnEventFilter" Unchecked="OnEventFilter" />
+                        <Button Content="مسح السجل" Style="{StaticResource Ghost}" Margin="8,0,0,0"
+                                Click="OnClearEvents" />
+                    </StackPanel>
+                </Grid>
+                <Border Grid.Row="1" Background="{StaticResource Card}" CornerRadius="12"
+                        BorderBrush="{StaticResource Line}" BorderThickness="1" Padding="6,2">
+                    <Grid>
+                        <TextBlock x:Name="EventHint" VerticalAlignment="Center" HorizontalAlignment="Center"
+                                   Foreground="{StaticResource Faint}" FontSize="13.5"
+                                   Text="لا أحداث بعد. يسجل هنا كل سلوك مريب لحظة وقوعه، ويبقى بعد إغلاق البرنامج." />
+                        <DataGrid x:Name="EventGrid">
+                            <DataGrid.RowStyle>
+                                <Style TargetType="DataGridRow" BasedOn="{StaticResource {x:Type DataGridRow}}">
+                                    <Setter Property="ToolTip" Value="{Binding Tip}" />
+                                </Style>
+                            </DataGrid.RowStyle>
+                            <DataGrid.Columns>
+                                <DataGridTemplateColumn Header="الخطورة" Width="86" SortMemberPath="Severity">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <Border Background="{Binding Tint}" CornerRadius="5" Padding="9,2"
+                                                    HorizontalAlignment="Right" Margin="4,0">
+                                                <TextBlock Text="{Binding SeverityText}" Foreground="{Binding Accent}"
+                                                           FontWeight="Bold" FontSize="11.5" />
+                                            </Border>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+                                <DataGridTextColumn Header="الوقت" Binding="{Binding Time}" Width="76" />
+                                <DataGridTextColumn Header="الحدث" Binding="{Binding Title}" Width="250">
+                                    <DataGridTextColumn.ElementStyle>
+                                        <Style TargetType="TextBlock">
+                                            <Setter Property="FontWeight" Value="SemiBold" />
+                                            <Setter Property="VerticalAlignment" Value="Center" />
+                                        </Style>
+                                    </DataGridTextColumn.ElementStyle>
+                                </DataGridTextColumn>
+                                <DataGridTextColumn Header="العملية" Binding="{Binding Process}" Width="160" />
+                                <DataGridTextColumn Header="الأب" Binding="{Binding Parent}" Width="130" />
+                                <DataGridTextColumn Header="التقنية" Binding="{Binding Technique}" Width="92" />
+                                <DataGridTextColumn Header="التفاصيل" Binding="{Binding Detail}" Width="*" />
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </Grid>
+                </Border>
+            </Grid>
+
+            <!-- === THREATS === -->
+            <Grid x:Name="PageThreats" Margin="28,26" Visibility="Collapsed">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+                <TextBlock Grid.Row="0" Text="التهديدات والعناصر المشبوهة" Foreground="{StaticResource Text}"
+                           FontSize="22" FontWeight="Bold" Margin="0,0,0,16" />
+
+                <Border Grid.Row="2" Background="{StaticResource Card}" CornerRadius="12"
+                        BorderBrush="{StaticResource Line}" BorderThickness="1" Padding="6,2">
+                    <Grid>
+                        <TextBlock x:Name="ThreatsEmpty" VerticalAlignment="Center" HorizontalAlignment="Center"
+                                   Foreground="{StaticResource Faint}" FontSize="13.5"
+                                   Text="لا تهديدات. كل العمليات موقعة، ولا كود محقون، ولا عملية مخفية." />
+                        <DataGrid x:Name="ThreatGrid">
+                            <DataGrid.ContextMenu>
+                                <ContextMenu>
+                                    <MenuItem Header="إنهاء العملية" Click="OnKillProcess"
+                                              Foreground="{StaticResource Red}" />
+                                    <MenuItem Header="فتح موقع الملف" Click="OnOpenLocation" />
+                                    <MenuItem Header="نسخ الاسم" Click="OnCopyName" />
+                                </ContextMenu>
+                            </DataGrid.ContextMenu>
+                            <DataGrid.Columns>
+                                <DataGridTemplateColumn Header="الحالة" Width="90" SortMemberPath="Verdict">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <Border Background="{Binding Tint}" CornerRadius="5" Padding="9,2"
+                                                    HorizontalAlignment="Right" Margin="4,0">
+                                                <TextBlock Text="{Binding VerdictText}" Foreground="{Binding Accent}"
+                                                           FontWeight="Bold" FontSize="11.5" />
+                                            </Border>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+                                <DataGridTextColumn Header="العملية" Binding="{Binding Name}" Width="210">
+                                    <DataGridTextColumn.ElementStyle>
+                                        <Style TargetType="TextBlock">
+                                            <Setter Property="FontWeight" Value="SemiBold" />
+                                            <Setter Property="VerticalAlignment" Value="Center" />
+                                        </Style>
+                                    </DataGridTextColumn.ElementStyle>
+                                </DataGridTextColumn>
+                                <DataGridTextColumn Header="PID" Binding="{Binding Pid}" Width="66" />
+                                <DataGridTextColumn Header="التوقيع" Binding="{Binding Signature}" Width="110" />
+                                <DataGridTextColumn Header="الناشر" Binding="{Binding Publisher}" Width="190" />
+                                <DataGridTextColumn Header="السبب" Binding="{Binding Reasons}" Width="*" />
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </Grid>
+                </Border>
+            </Grid>
+
+            <!-- === SETTINGS === -->
+            <Grid x:Name="PageSettings" Margin="28,26" Visibility="Collapsed">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+                <TextBlock Grid.Row="0" Text="الإعدادات" Foreground="{StaticResource Text}"
+                           FontSize="22" FontWeight="Bold" Margin="0,0,0,16" />
+
+                <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+                    <StackPanel MaxWidth="760" HorizontalAlignment="Stretch">
+
+                        <!-- Appearance & behaviour -->
+                        <Border Background="{StaticResource Card}" CornerRadius="14"
+                                BorderBrush="{StaticResource Line}" BorderThickness="1" Padding="24,10,24,18">
+                            <StackPanel>
+                                <TextBlock Text="المظهر والسلوك" Foreground="{StaticResource Brand}" FontSize="15"
+                                           FontWeight="Bold" Margin="0,10,0,4" />
+                                <CheckBox x:Name="ChkLight" Style="{StaticResource Switch}" Content="الوضع الفاتح"
+                                          Checked="OnThemeToggle" Unchecked="OnThemeToggle" />
+                                <Border Height="1" Background="{StaticResource Line}" Margin="0,4" />
+                                <CheckBox x:Name="ChkNotify" Style="{StaticResource Switch}"
+                                          Content="الإشعارات عند ظهور عملية مشبوهة" Checked="OnPrefChanged" Unchecked="OnPrefChanged" />
+                                <Border Height="1" Background="{StaticResource Line}" Margin="0,4" />
+                                <CheckBox x:Name="ChkSystemNotify" Style="{StaticResource Switch}"
+                                          Content="إشعارات ويندوز خارج البرنامج" Checked="OnPrefChanged" Unchecked="OnPrefChanged" />
+                                <Border Height="1" Background="{StaticResource Line}" Margin="0,4" />
+                                <CheckBox x:Name="ChkSound" Style="{StaticResource Switch}"
+                                          Content="صوت مع التنبيه" Checked="OnPrefChanged" Unchecked="OnPrefChanged" />
+                                <Border Height="1" Background="{StaticResource Line}" Margin="0,4" />
+                                <CheckBox x:Name="ChkStartup" Style="{StaticResource Switch}"
+                                          Content="التشغيل مع بدء ويندوز" Checked="OnStartupToggle" Unchecked="OnStartupToggle" />
+                                <TextBlock x:Name="StartupStatus" Foreground="{StaticResource Faint}" FontSize="11.5"
+                                           TextWrapping="Wrap" Margin="0,0,0,4" />
+                                <Border Height="1" Background="{StaticResource Line}" Margin="0,4" />
+                                <CheckBox x:Name="ChkBackground" Style="{StaticResource Switch}"
+                                          Content="الاستمرار بالمراقبة في الخلفية عند الإغلاق" Checked="OnPrefChanged" Unchecked="OnPrefChanged" />
+                                <Border Height="1" Background="{StaticResource Line}" Margin="0,4" />
+                                <CheckBox x:Name="ChkHealth" Style="{StaticResource Switch}"
+                                          Content="مراقبة حالة الجهاز (المعالج والذاكرة)" Checked="OnPrefChanged" Unchecked="OnPrefChanged" />
+                                <Border Height="1" Background="{StaticResource Line}" Margin="0,4" />
+                                <TextBlock x:Name="CaptureStatus" Foreground="{StaticResource Muted}" FontSize="12.5"
+                                           TextWrapping="Wrap" Margin="0,12,0,0" />
+                                <Grid Margin="0,10,0,6">
+                                    <TextBlock x:Name="ElevateStatus" Foreground="{StaticResource Muted}" FontSize="13"
+                                               VerticalAlignment="Center" TextWrapping="Wrap" Margin="0,0,180,0" />
+                                    <Button x:Name="ElevateBtn" Content="تشغيل بصلاحية المدير" Style="{StaticResource Ghost}"
+                                            HorizontalAlignment="Right" Click="OnElevate" />
+                                </Grid>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- About / credits -->
+                        <Border Background="{StaticResource Card}" CornerRadius="14" Margin="0,16,0,0"
+                                BorderBrush="{StaticResource Line}" BorderThickness="1" Padding="24,18">
+                            <StackPanel>
+                                <TextBlock Text="عن البرنامج" Foreground="{StaticResource Brand}" FontSize="15"
+                                           FontWeight="Bold" />
+
+                                <Grid Margin="0,14,0,0">
+                                    <StackPanel>
+                                        <TextBlock Text="Meow Security" FontFamily="{StaticResource UiDisplay}"
+                                                   Foreground="{StaticResource Text}" FontSize="19" FontWeight="Bold" />
+                                        <TextBlock x:Name="AboutVersion" Foreground="{StaticResource Faint}"
+                                                   FontSize="11.5" Margin="0,2,0,0" />
+                                        <TextBlock Text="مراقب عمليات وذاكرة وشبكة، وكاشف اختراق للمضيف."
+                                                   Foreground="{StaticResource Muted}" FontSize="12.5" Margin="0,8,0,0" />
+                                        <TextBlock Text="أداة مراقبة وتحليل، ليست بديلا عن مضاد الفيروسات."
+                                                   Foreground="{StaticResource Faint}" FontSize="11.5" Margin="0,3,0,0" />
+                                    </StackPanel>
+                                </Grid>
+
+                                <Border Height="1" Background="{StaticResource Line}" Margin="0,16,0,14" />
+
+                                <TextBlock Foreground="{StaticResource Muted}" FontSize="12.5"
+                                           Text="تطوير: محمد عبد الرحمن" />
+                                <TextBlock Foreground="{StaticResource Faint}" FontSize="11.5" Margin="0,6,0,0"
+                                           TextWrapping="Wrap"
+                                           Text="برنامج حر مفتوح المصدر برخصة GNU GPL الإصدار 3. لك حرية استخدامه ودراسته وتعديله؛ وأي نسخة توزعها يجب أن تبقى مفتوحة المصدر بالرخصة نفسها." />
+
+                                <StackPanel Orientation="Horizontal" Margin="0,14,0,0">
+                                    <TextBlock Text="mohmadev.com" Foreground="{StaticResource NetIn}" FontSize="12.5"
+                                               Cursor="Hand" Tag="https://mohmadev.com"
+                                               MouseLeftButtonUp="OnOpenLink" />
+                                    <TextBlock Text="·" Foreground="{StaticResource Faint}" Margin="10,0" />
+                                    <TextBlock Text="github.com/dvlinuxx-max" Foreground="{StaticResource NetIn}"
+                                               FontSize="12.5" Cursor="Hand"
+                                               Tag="https://github.com/dvlinuxx-max"
+                                               MouseLeftButtonUp="OnOpenLink" />
+                                    <TextBlock Text="·" Foreground="{StaticResource Faint}" Margin="10,0" />
+                                    <TextBlock Text="نص الرخصة" Foreground="{StaticResource NetIn}" FontSize="12.5"
+                                               Cursor="Hand" Tag="https://www.gnu.org/licenses/gpl-3.0.html"
+                                               MouseLeftButtonUp="OnOpenLink" />
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </ScrollViewer>
+            </Grid>
+
+            <!-- Instant alert (toast) -->
+            <Border x:Name="Toast" Visibility="Collapsed" VerticalAlignment="Top" HorizontalAlignment="Left"
+                    Margin="28,20,0,0" MinWidth="360" MaxWidth="460" CornerRadius="12" Panel.ZIndex="100"
+                    Background="{StaticResource Panel}" BorderBrush="{StaticResource Line}" BorderThickness="1"
+                    RenderTransformOrigin="0.5,0.5">
+                <Border.RenderTransform>
+                    <TranslateTransform x:Name="ToastShift" X="-30" />
+                </Border.RenderTransform>
+                <Border.Effect>
+                    <DropShadowEffect Color="#000000" BlurRadius="26" ShadowDepth="0" Opacity="0.55" />
+                </Border.Effect>
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="4" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <Border x:Name="ToastBar" Grid.Column="0" Background="{StaticResource Red}" CornerRadius="0,12,12,0" />
+                    <StackPanel Grid.Column="1" Margin="16,13">
+                        <TextBlock x:Name="ToastTitle" Foreground="{StaticResource Text}" FontWeight="Bold"
+                                   FontSize="14.5" HorizontalAlignment="Right" />
+                        <TextBlock x:Name="ToastDetail" Foreground="{StaticResource Muted}" FontSize="12.5"
+                                   TextWrapping="Wrap" HorizontalAlignment="Right" Margin="0,5,0,0" />
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" Margin="0,12,0,0">
+                            <Button Content="مراجعة" Style="{StaticResource Ghost}" Click="OnToastReview" />
+                            <Button Content="إخفاء" Style="{StaticResource Ghost}" Click="OnToastDismiss" Margin="8,0,0,0" />
+                        </StackPanel>
+                    </StackPanel>
+                </Grid>
+            </Border>
+        </Grid>
+    </Grid>
+</Window>

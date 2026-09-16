@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <Platforms>x64</Platforms>
+    <RootNamespace>MeowSecurity.Gui</RootNamespace>
+    <AssemblyName>MeowSecurity</AssemblyName>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>sentinel.ico</ApplicationIcon>
+    <Product>Meow Security</Product>
+    <Company>Mohammed Abd Alrahman</Company>
+    <Copyright>Copyright (c) 2026 Mohammed Abd Alrahman — GPL-3.0</Copyright>
+    <Version>0.9.0</Version>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\MeowSecurity.Core\MeowSecurity.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Resource Include="Fonts\*.ttf" />
+    <Resource Include="sentinel.ico" />
+    <Resource Include="sentinel.png" />
+  </ItemGroup>
+
+</Project>
