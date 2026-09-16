@@ -117,6 +117,12 @@ public static class Strings
             "Something went wrong, and monitoring is continuing.\n\n{0}: {1}\n\nDetails in:\n{2}"),
 
         // ---------------- interface ----------------
+        ["etw.on.helper"] = (
+            "الالتقاط اللحظي يعمل عبر محرك مرتفع الصلاحية",
+            "Live capture is running through the elevated engine"),
+        ["etw.declined"] = (
+            "الالتقاط اللحظي متوقف — رفضت منح الصلاحية. تقدر تفعله لاحقا من هنا.",
+            "Live capture is off — elevation was declined. You can enable it here later."),
         ["settings.english"] = ("English interface", "English interface"),
         ["alert.suspicious"] = ("عملية مشبوهة: {0}", "Suspicious process: {0}"),
         ["alert.suspicious.body"] = ("ظهرت عملية مشبوهة.", "A suspicious process appeared."),

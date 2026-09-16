@@ -240,6 +240,16 @@ public static class AutorunControl
         catch { return []; }
     }
 
+    /// <summary>
+    /// Names an entry without describing it.
+    ///
+    /// This is what crosses the privilege boundary when the application asks the elevated
+    /// helper to disable something: the helper re-scans, matches this string, and acts on what
+    /// it found itself. So the client can point at an entry but never hand over a path or a
+    /// registry key to be written.
+    /// </summary>
+    public static string IdentityOf(AutorunEntry e) => Identity(e);
+
     private static string Identity(AutorunEntry e) =>
         $"{e.Kind}|{e.ServiceName}|{e.TaskPath}|{e.KeyPath}|{e.ValueName}|{e.ItemPath}";
 

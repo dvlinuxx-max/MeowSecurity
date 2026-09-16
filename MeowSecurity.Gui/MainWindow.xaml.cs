@@ -6,6 +6,7 @@ using System.Windows.Media;
 using System.Windows.Threading;
 using MeowSecurity.Core.Detect;
 using MeowSecurity.Core.Intel;
+using MeowSecurity.Core.Ipc;
 using MeowSecurity.Core.Live;
 using MeowSecurity.Core.Localization;
 using MeowSecurity.Core.Processes;
@@ -367,11 +368,43 @@ public partial class MainWindow : Window
     /// runs and exits in a few hundred milliseconds. This closes that window. It needs
     /// administrator rights; without them the poll still runs and the settings page says why.
     /// </summary>
-    private void StartLiveCapture()
+    private readonly EngineClient _engine = new();
+
+    /// <summary>
+    /// Starts the live capture by whichever route is available.
+    ///
+    /// Elevated, the trace session opens in this process and there is nothing to negotiate.
+    /// Otherwise the small elevated helper does it and streams the events back, which is the
+    /// only shape a packaged application is allowed to take: the interface stays unprivileged
+    /// and one prompt covers one job.
+    /// </summary>
+    private async void StartLiveCapture()
     {
         _etw.Started += OnProcessStarted;
-        _etw.Start();
-        UpdateCaptureStatus();
+
+        if (IsElevated())
+        {
+            _etw.Start();
+            UpdateCaptureStatus();
+            return;
+        }
+
+        UpdateCaptureStatus();   // shows the "needs administrator" state while we ask
+        _engine.ProcessStarted += OnProcessStarted;
+
+        if (!await _engine.ConnectAsync())
+        {
+            CaptureStatus.Text = _engine.Declined
+                ? Strings.T("etw.declined")
+                : Strings.T("etw.unavailable", _engine.Error ?? "");
+            return;
+        }
+
+        var reply = await _engine.SendAsync(new Request { Command = Command.StartCapture });
+        CaptureStatus.Text = reply?.Ok == true
+            ? Strings.T("etw.on.helper")
+            : Strings.T("etw.unavailable", reply?.Text ?? _engine.Error ?? "");
+        CaptureStatus.Foreground = Res(reply?.Ok == true ? "Green" : "Muted");
     }
 
     private void UpdateCaptureStatus()

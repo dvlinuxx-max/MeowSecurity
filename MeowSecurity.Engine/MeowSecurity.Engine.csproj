@@ -1,0 +1,24 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <Platforms>x64</Platforms>
+    <RootNamespace>MeowSecurity.Engine</RootNamespace>
+    <AssemblyName>MeowSecurity.Engine</AssemblyName>
+    <Product>Meow Security Engine</Product>
+    <Company>Mohammed Abd Alrahman</Company>
+    <Copyright>Copyright (c) 2026 Mohammed Abd Alrahman — GPL-3.0</Copyright>
+    <Version>0.9.0</Version>
+    <!-- Elevation is requested by the launching application through the runas verb, not
+         demanded here: a packaged app may not ship a binary that forces elevation. -->
+    <ApplicationIcon>..\MeowSecurity.Gui\meow-security.ico</ApplicationIcon>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\MeowSecurity.Core\MeowSecurity.Core.csproj" />
+  </ItemGroup>
+
+</Project>
