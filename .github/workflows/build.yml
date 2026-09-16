@@ -1,0 +1,80 @@
+name: build
+
+# A reproducible build anyone can inspect: the same steps run here that run on a
+# developer's machine, and the artefacts published from a tag are the ones that were
+# built from that tag's source. This is also the pipeline code signing hooks into,
+# which is why it produces the binaries rather than only checking that they compile.
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Restore
+        run: dotnet restore MeowSecurity.Gui/MeowSecurity.Gui.csproj
+
+      - name: Build
+        run: dotnet build MeowSecurity.Gui/MeowSecurity.Gui.csproj -c Release --no-restore
+
+      # The detection rules are the part that cannot be validated by running the product,
+      # so the table of attack shapes and everyday noise is checked on every push.
+      - name: Detection rule regression suite
+        run: dotnet run --project MeowSecurity.Cli -c Release -- --rule-test
+
+      - name: Publish the application
+        run: >
+          dotnet publish MeowSecurity.Gui/MeowSecurity.Gui.csproj
+          -c Release -r win-x64 --self-contained true
+          -p:PublishSingleFile=true
+          -p:IncludeNativeLibrariesForSelfExtract=true
+          -p:EnableCompressionInSingleFile=true
+          -o publish/app
+
+      - name: Publish the elevated engine
+        run: >
+          dotnet publish MeowSecurity.Engine/MeowSecurity.Engine.csproj
+          -c Release -r win-x64 --self-contained true
+          -p:PublishSingleFile=true
+          -p:IncludeNativeLibrariesForSelfExtract=true
+          -p:EnableCompressionInSingleFile=true
+          -o publish/app
+
+      - name: Publish the command line tool
+        run: >
+          dotnet publish MeowSecurity.Cli/MeowSecurity.Cli.csproj
+          -c Release -r win-x64 --self-contained true
+          -p:PublishSingleFile=true
+          -p:IncludeNativeLibrariesForSelfExtract=true
+          -p:EnableCompressionInSingleFile=true
+          -o publish/app
+
+      - name: Collect the release files
+        shell: pwsh
+        run: |
+          Copy-Item LICENSE, PRIVACY.md, README.md publish/app
+          Get-ChildItem publish/app | Select-Object Name, Length
+
+      - name: Upload the build
+        uses: actions/upload-artifact@v4
+        with:
+          name: MeowSecurity-win-x64
+          path: publish/app
+          retention-days: 30
