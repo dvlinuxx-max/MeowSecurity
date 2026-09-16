@@ -1,6 +1,8 @@
 using MeowSecurity.Core.Detect;
 using MeowSecurity.Core.Live;
 
+using MeowSecurity.Core.Localization;
+
 namespace MeowSecurity.Core.Health;
 
 /// <summary>
@@ -44,15 +46,13 @@ public sealed class HealthMonitor
         var memory = Track(memoryPercent, MemoryHighPercent, ref _memoryHighSince, ref _memoryReported, now);
 
         if (cpu)
-            return Make("health.cpu", "ضغط مستمر على المعالج",
-                $"المعالج فوق {CpuHighPercent:0}% منذ أكثر من دقيقة" +
-                (topProcess is null ? "." : $"، وأكثر عملية استهلاكا هي {topProcess}."),
+            return Make("health.cpu", Strings.T("health.cpu.title"),
+                Strings.T("health.cpu.detail", CpuHighPercent) + Consumer(topProcess),
                 topProcess);
 
         if (memory)
-            return Make("health.memory", "الذاكرة شبه ممتلئة",
-                $"استهلاك الذاكرة فوق {MemoryHighPercent:0}% منذ أكثر من دقيقة" +
-                (topProcess is null ? "." : $"، وأكثر عملية استهلاكا هي {topProcess}."),
+            return Make("health.memory", Strings.T("health.memory.title"),
+                Strings.T("health.memory.detail", MemoryHighPercent) + Consumer(topProcess),
                 topProcess);
 
         return null;
@@ -80,13 +80,17 @@ public sealed class HealthMonitor
         return false;
     }
 
+    /// <summary>Names the heaviest process, or closes the sentence when there is nothing to name.</summary>
+    private static string Consumer(string? process) =>
+        process is null ? "." : Strings.T("health.consumer", process);
+
     private static SecurityEvent Make(string rule, string title, string detail, string? process) =>
         new()
         {
             Severity = Severity.Medium,
             Score = 20,
             Pid = 0,
-            Process = process ?? "النظام",
+            Process = process ?? Strings.T("common.system"),
             Rule = rule,
             Title = title,
             Detail = detail,

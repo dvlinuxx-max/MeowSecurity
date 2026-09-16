@@ -1,3 +1,5 @@
+using MeowSecurity.Core.Localization;
+
 namespace MeowSecurity.Core.Detect;
 
 /// <summary>What a finding means, and what the person in front of the screen should do.</summary>
@@ -20,90 +22,135 @@ public sealed record Advice(string Means, string Do, bool Urgent);
 /// </summary>
 public static class Guidance
 {
-    private static readonly Dictionary<string, Advice> ByRule = new()
-    {
-        ["stealth.hidden"] = new(
-            "عملية تخفي نفسها عن إحدى طرق تعداد العمليات في ويندوز.",
-            "هذا سلوك جذور خفية ولا يفعله برنامج عادي. افصل الجهاز عن الإنترنت، وافحصه ببرنامج حماية موثوق، ولا تدخل كلمات مرور قبل تنظيفه.",
-            Urgent: true),
+    /// <summary>Rules whose advice is worth acting on immediately.</summary>
+    private static readonly HashSet<string> UrgentRules =
+    [
+        "stealth.hidden", "memory.implanted-pe", "masquerade.system-name",
+        "masquerade.double-extension", "lolbin.office-parent", "lolbin.encoded-payload",
+        "lolbin.bare-rundll32", "sign.invalid",
+    ];
 
-        ["memory.implanted-pe"] = new(
-            "برنامج يعمل من داخل ذاكرة عملية أخرى بدل أن يعمل من ملف على القرص.",
-            "هذا حقن كود. أنه العملية من صفحة العمليات، ثم افحص الجهاز. إذا رجعت بعد إعادة التشغيل فالمصدر في بدء التشغيل — راجع تلك الصفحة.",
-            Urgent: true),
+    static Guidance() => Strings.Register(Text);
 
-        ["masquerade.system-name"] = new(
-            "ملف يحمل اسم أحد مكونات ويندوز لكنه يعمل من مكان غير مجلد ويندوز.",
-            "النسخة الأصلية لا تعمل إلا من مجلد النظام، فهذا انتحال شبه مؤكد. أنه العملية، وافتح موقع الملف واحذفه، ثم تأكد من صفحة بدء التشغيل.",
-            Urgent: true),
-
-        ["masquerade.double-extension"] = new(
-            "الملف يظهر كمستند لكنه في الحقيقة برنامج تنفيذي.",
-            "هذه حيلة مرفقات البريد. لا تفتحه مرة أخرى، وأنه العملية، واحذف الملف من موقعه.",
-            Urgent: true),
-
-        ["lolbin.office-parent"] = new(
-            "مستند أو سكربت شغل أداة نظام مثل PowerShell — وهذا ما تفعله الماكروهات الخبيثة.",
-            "إذا لم تكن قد فتحت مستندا للتو فأنه العملية فورا. وإذا فتحت مستندا وصلك بالبريد فاعتبره مصدر الإصابة ولا تفتحه ثانية.",
-            Urgent: true),
-
-        ["lolbin.encoded-payload"] = new(
-            "أمر مخفي بترميز Base64، وبعد فك ترميزه ظهر أنه ينزل أو ينفذ كودا من الإنترنت.",
-            "الإخفاء نفسه ليس له سبب مشروع هنا. أنه العملية، وانظر إلى الأمر المفكوك في التفاصيل لتعرف من أين يأتي.",
-            Urgent: true),
-
-        ["lolbin.command-line"] = new(
-            "أداة نظام موثوقة تعمل بوسائط غير معتادة.",
-            "إن كنت أنت من شغل الأمر فتجاهله. وإن لم تكن، فأنه العملية وافحص الملف الذي شغلها من صفحة التهديدات.",
-            Urgent: false),
-
-        ["lolbin.bare-rundll32"] = new(
-            "rundll32 يعمل بلا أي مكتبة — لا وظيفة له بهذا الشكل.",
-            "غالبا عملية فارغة استعملت لحقن كود. أنه العملية وراقب إن كانت ترجع.",
-            Urgent: true),
-
-        ["lolbin.user-path"] = new(
-            "نسخة من أداة نظام تعمل من مجلد يستطيع أي برنامج الكتابة فيه.",
-            "الأدوات الأصلية تعمل من مجلد ويندوز. افتح موقع الملف وافحصه بالفحص المتقدم قبل أن تثق به.",
-            Urgent: false),
-
-        ["script.user-path"] = new(
-            "مشغل سكربتات يعمل على ملف في مجلد قابل للكتابة.",
-            "إذا لم تكن تشغل سكربتا بنفسك فأنه العملية، وافحص الملف من صفحة التهديدات.",
-            Urgent: false),
-
-        ["sign.invalid"] = new(
-            "الملف موقع رقميا لكن التوقيع مكسور — أي أنه عدل بعد توقيعه.",
-            "لا تثق به. احذف البرنامج وأعد تنزيله من موقعه الرسمي مباشرة.",
-            Urgent: true),
-
-        ["trust.unsigned-userland"] = new(
-            "برنامج بلا توقيع رقمي يعمل من مجلد مؤقت أو مجلد مستخدم.",
-            "كثير من البرامج الصغيرة والأدوات المجانية بلا توقيع، فهذا وحده ليس دليلا. افتح موقع الملف: إن كنت تعرفه فلا بأس، وإن لم تعرفه فافحصه بالفحص المتقدم.",
-            Urgent: false),
-
-        ["network.unsigned-remote"] = new(
-            "برنامج بلا توقيع يفتح اتصالات مع الإنترنت من مجلد قابل للكتابة.",
-            "افتح صفحة الشبكة وانظر إلى أين يتصل. إن كان المكان غير مألوف فأنه العملية وافحص الملف.",
-            Urgent: false),
-
-        ["health.cpu"] = new(
-            "المعالج يعمل بأقصى طاقته منذ أكثر من دقيقة دون توقف.",
-            "إن كنت تشغل لعبة أو تحويل فيديو أو تحديثا فهذا طبيعي. وإن لم تكن تفعل شيئا ثقيلا فافتح صفحة العمليات وانظر إلى أعلى عملية استهلاكا — التعدين الخفي يبدو هكذا بالضبط.",
-            Urgent: false),
-
-        ["health.memory"] = new(
-            "الذاكرة شبه ممتلئة، ولهذا يبطؤ الجهاز.",
-            "أغلق ما لا تحتاجه، وابدأ بأعلى عملية في صفحة العمليات. إذا كانت عملية واحدة تلتهم الذاكرة وحدها ولا تعرفها فافحصها.",
-            Urgent: false),
-    };
-
-    private static readonly Advice Fallback = new(
-        "سلوك غير معتاد من هذه العملية.",
-        "افتح صفحة الأحداث لقراءة التفاصيل، وإذا لم تكن تعرف البرنامج فافحصه بالفحص المتقدم.",
-        Urgent: false);
-
-    public static Advice For(string rule) => ByRule.TryGetValue(rule, out var a) ? a : Fallback;
+    public static Advice For(string rule) =>
+        Strings.T($"advice.{rule}.means") is var means && means.StartsWith("advice.", StringComparison.Ordinal)
+            ? new Advice(Strings.T("advice.fallback.means"), Strings.T("advice.fallback.do"), false)
+            : new Advice(means, Strings.T($"advice.{rule}.do"), UrgentRules.Contains(rule));
 
     public static Advice For(SecurityEvent ev) => For(ev.Rule);
+
+    private static readonly Dictionary<string, (string Ar, string En)> Text = new()
+    {
+        ["advice.stealth.hidden.means"] = (
+            "عملية تخفي نفسها عن إحدى طرق تعداد العمليات في ويندوز.",
+            "A process is hiding itself from one of the ways Windows lists running programs."),
+        ["advice.stealth.hidden.do"] = (
+            "هذا سلوك جذور خفية ولا يفعله برنامج عادي. افصل الجهاز عن الإنترنت، وافحصه ببرنامج حماية موثوق، ولا تدخل كلمات مرور قبل تنظيفه.",
+            "This is rootkit behaviour and no ordinary program does it. Disconnect from the internet, scan with a trusted anti-malware tool, and do not type any passwords until the machine is clean."),
+
+        ["advice.memory.implanted-pe.means"] = (
+            "برنامج يعمل من داخل ذاكرة عملية أخرى بدل أن يعمل من ملف على القرص.",
+            "Code is running inside another process's memory instead of from a file on disk."),
+        ["advice.memory.implanted-pe.do"] = (
+            "هذا حقن كود. أنه العملية من صفحة العمليات، ثم افحص الجهاز. إذا رجعت بعد إعادة التشغيل فالمصدر في بدء التشغيل — راجع تلك الصفحة.",
+            "That is code injection. End the process from the Processes page, then scan the machine. If it comes back after a reboot the source is a startup entry — check that page."),
+
+        ["advice.masquerade.system-name.means"] = (
+            "ملف يحمل اسم أحد مكونات ويندوز لكنه يعمل من مكان غير مجلد ويندوز.",
+            "A file carries the name of a Windows component but runs from somewhere other than the Windows folder."),
+        ["advice.masquerade.system-name.do"] = (
+            "النسخة الأصلية لا تعمل إلا من مجلد النظام، فهذا انتحال شبه مؤكد. أنه العملية، وافتح موقع الملف واحذفه، ثم تأكد من صفحة بدء التشغيل.",
+            "The real one only ever runs from the system folder, so this is almost certainly an impostor. End the process, open its file location and delete it, then check the Startup page."),
+
+        ["advice.masquerade.double-extension.means"] = (
+            "الملف يظهر كمستند لكنه في الحقيقة برنامج تنفيذي.",
+            "The file looks like a document but is actually a program."),
+        ["advice.masquerade.double-extension.do"] = (
+            "هذه حيلة مرفقات البريد. لا تفتحه مرة أخرى، وأنه العملية، واحذف الملف من موقعه.",
+            "This is the classic email-attachment trick. Do not open it again, end the process, and delete the file."),
+
+        ["advice.lolbin.office-parent.means"] = (
+            "مستند أو سكربت شغل أداة نظام مثل PowerShell — وهذا ما تفعله الماكروهات الخبيثة.",
+            "A document or script launched a system tool such as PowerShell — which is what a malicious macro does."),
+        ["advice.lolbin.office-parent.do"] = (
+            "إذا لم تكن قد فتحت مستندا للتو فأنه العملية فورا. وإذا فتحت مستندا وصلك بالبريد فاعتبره مصدر الإصابة ولا تفتحه ثانية.",
+            "If you did not just open a document, end the process now. If you did open one that arrived by email, treat it as the source and do not open it again."),
+
+        ["advice.lolbin.encoded-payload.means"] = (
+            "أمر مخفي بترميز Base64، وبعد فك ترميزه ظهر أنه ينزل أو ينفذ كودا من الإنترنت.",
+            "A command hidden with Base64 encoding which, once decoded, downloads or executes code from the internet."),
+        ["advice.lolbin.encoded-payload.do"] = (
+            "الإخفاء نفسه ليس له سبب مشروع هنا. أنه العملية، وانظر إلى الأمر المفكوك في التفاصيل لتعرف من أين يأتي.",
+            "The hiding itself has no legitimate reason here. End the process, and read the decoded command in the details to see where it came from."),
+
+        ["advice.lolbin.command-line.means"] = (
+            "أداة نظام موثوقة تعمل بوسائط غير معتادة.",
+            "A trusted system tool is running with unusual arguments."),
+        ["advice.lolbin.command-line.do"] = (
+            "إن كنت أنت من شغل الأمر فتجاهله. وإن لم تكن، فأنه العملية وافحص الملف الذي شغلها من صفحة التهديدات.",
+            "If you ran the command yourself, ignore this. If you did not, end the process and look at whatever launched it on the Threats page."),
+
+        ["advice.lolbin.bare-rundll32.means"] = (
+            "rundll32 يعمل بلا أي مكتبة — لا وظيفة له بهذا الشكل.",
+            "rundll32 is running with no library to load — in that form it has no purpose."),
+        ["advice.lolbin.bare-rundll32.do"] = (
+            "غالبا عملية فارغة استعملت لحقن كود. أنه العملية وراقب إن كانت ترجع.",
+            "It is usually an empty process used as a host for injected code. End it and watch whether it returns."),
+
+        ["advice.lolbin.user-path.means"] = (
+            "نسخة من أداة نظام تعمل من مجلد يستطيع أي برنامج الكتابة فيه.",
+            "A copy of a system tool is running from a folder any program can write to."),
+        ["advice.lolbin.user-path.do"] = (
+            "الأدوات الأصلية تعمل من مجلد ويندوز. افتح موقع الملف وتأكد من مصدره قبل أن تثق به.",
+            "The genuine tools live in the Windows folder. Open the file's location and satisfy yourself where it came from before trusting it."),
+
+        ["advice.script.user-path.means"] = (
+            "مشغل سكربتات يعمل على ملف في مجلد قابل للكتابة.",
+            "A script host is running something from a writable folder."),
+        ["advice.script.user-path.do"] = (
+            "إذا لم تكن تشغل سكربتا بنفسك فأنه العملية، وافتح موقع الملف لتعرف ما هو.",
+            "If you are not running a script yourself, end the process and open the file location to see what it is."),
+
+        ["advice.sign.invalid.means"] = (
+            "الملف موقع رقميا لكن التوقيع مكسور — أي أنه عدل بعد توقيعه.",
+            "The file is digitally signed but the signature is broken — meaning it was modified after signing."),
+        ["advice.sign.invalid.do"] = (
+            "لا تثق به. احذف البرنامج وأعد تنزيله من موقعه الرسمي مباشرة.",
+            "Do not trust it. Remove the program and download it again from its official site."),
+
+        ["advice.trust.unsigned-userland.means"] = (
+            "برنامج بلا توقيع رقمي يعمل من مجلد مؤقت أو مجلد مستخدم.",
+            "An unsigned program is running from a temporary or user folder."),
+        ["advice.trust.unsigned-userland.do"] = (
+            "كثير من البرامج الصغيرة والأدوات المجانية بلا توقيع، فهذا وحده ليس دليلا. افتح موقع الملف: إن كنت تعرفه فلا بأس، وإن لم تعرفه فأنه العملية.",
+            "Plenty of small and free tools are unsigned, so this alone proves nothing. Open the file's location: if you recognise it, fine; if you do not, end the process."),
+
+        ["advice.network.unsigned-remote.means"] = (
+            "برنامج بلا توقيع يفتح اتصالات مع الإنترنت من مجلد قابل للكتابة.",
+            "An unsigned program running from a writable folder is opening connections to the internet."),
+        ["advice.network.unsigned-remote.do"] = (
+            "افتح صفحة الشبكة وانظر كم يرسل وكم يستقبل. إن لم تكن تعرف البرنامج فأنه العملية.",
+            "Open the Network page and see how much it is sending and receiving. If you do not recognise the program, end it."),
+
+        ["advice.health.cpu.means"] = (
+            "المعالج يعمل بأقصى طاقته منذ أكثر من دقيقة دون توقف.",
+            "The processor has been at full load for over a minute without pause."),
+        ["advice.health.cpu.do"] = (
+            "إن كنت تشغل لعبة أو تحويل فيديو أو تحديثا فهذا طبيعي. وإن لم تكن تفعل شيئا ثقيلا فافتح صفحة العمليات وانظر إلى أعلى عملية استهلاكا — التعدين الخفي يبدو هكذا بالضبط.",
+            "If you are running a game, a video export or an update, this is normal. If you are not doing anything heavy, open the Processes page and look at the top consumer — hidden mining looks exactly like this."),
+
+        ["advice.health.memory.means"] = (
+            "الذاكرة شبه ممتلئة، ولهذا يبطؤ الجهاز.",
+            "Memory is nearly full, which is why the machine feels slow."),
+        ["advice.health.memory.do"] = (
+            "أغلق ما لا تحتاجه، وابدأ بأعلى عملية في صفحة العمليات. إذا كانت عملية واحدة تلتهم الذاكرة وحدها ولا تعرفها فأنهها.",
+            "Close what you do not need, starting with the top process on the Processes page. If a single process you do not recognise is eating it all, end it."),
+
+        ["advice.fallback.means"] = (
+            "سلوك غير معتاد من هذه العملية.",
+            "Unusual behaviour from this process."),
+        ["advice.fallback.do"] = (
+            "افتح صفحة الأحداث لقراءة التفاصيل، وإذا لم تكن تعرف البرنامج فافتح موقع الملف.",
+            "Open the Events page for the details, and if you do not recognise the program, open its file location."),
+    };
 }

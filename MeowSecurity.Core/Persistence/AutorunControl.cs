@@ -2,6 +2,8 @@ using System.Text.Json;
 using Microsoft.Win32;
 using MeowSecurity.Core.Intel;
 
+using MeowSecurity.Core.Localization;
+
 namespace MeowSecurity.Core.Persistence;
 
 /// <summary>What happened when the user asked to change an autorun.</summary>
@@ -67,38 +69,38 @@ public static class AutorunControl
             Path.GetFileName(entry.ItemPath), enable, entry),
         AutorunKind.ScheduledTask => SetTaskEnabled(entry, enable),
         AutorunKind.Service => SetServiceEnabled(entry, enable),
-        _ => ControlResult.Fail("نوع غير مدعوم"),
+        _ => ControlResult.Fail(Strings.T("ctl.unsupported")),
     };
 
     private static ControlResult SetApproval(
         RegistryHive hive, string keyPath, string? valueName, bool enable, AutorunEntry entry)
     {
-        if (string.IsNullOrEmpty(valueName)) return ControlResult.Fail("لا يمكن تحديد المدخل");
+        if (string.IsNullOrEmpty(valueName)) return ControlResult.Fail(Strings.T("ctl.no-entry"));
         try
         {
             using var baseKey = RegistryKey.OpenBaseKey(hive, RegistryView.Registry64);
             using var key = baseKey.CreateSubKey(keyPath, writable: true);
-            if (key is null) return ControlResult.Fail("تعذر فتح مفتاح السجل");
+            if (key is null) return ControlResult.Fail(Strings.T("ctl.no-key"));
 
             key.SetValue(valueName, enable ? EnabledFlag : DisabledFlag, RegistryValueKind.Binary);
             entry.Enabled = enable;
             Remember(entry, enable ? null : "approval");
-            return ControlResult.Success(enable ? "أعيد تفعيله" : "عطل — لن يعمل عند الإقلاع");
+            return ControlResult.Success(enable ? Strings.T("ctl.enabled") : Strings.T("ctl.disabled"));
         }
         catch (UnauthorizedAccessException)
         {
-            return ControlResult.Elevate("يحتاج صلاحية المدير لتعديل مدخل على مستوى الجهاز");
+            return ControlResult.Elevate(Strings.T("ctl.needs-admin-machine"));
         }
         catch (Exception ex) { return ControlResult.Fail(ex.Message); }
     }
 
     private static ControlResult SetTaskEnabled(AutorunEntry entry, bool enable)
     {
-        if (string.IsNullOrEmpty(entry.TaskPath)) return ControlResult.Fail("لا يمكن تحديد المهمة");
+        if (string.IsNullOrEmpty(entry.TaskPath)) return ControlResult.Fail(Strings.T("ctl.no-task"));
         try
         {
             var type = Type.GetTypeFromProgID("Schedule.Service");
-            if (type is null) return ControlResult.Fail("خدمة جدولة المهام غير متاحة");
+            if (type is null) return ControlResult.Fail(Strings.T("ctl.no-scheduler"));
             dynamic service = Activator.CreateInstance(type)!;
             service.Connect();
 
@@ -109,29 +111,29 @@ public static class AutorunControl
 
             entry.Enabled = enable;
             Remember(entry, enable ? null : "task");
-            return ControlResult.Success(enable ? "أعيد تفعيل المهمة" : "عطلت المهمة المجدولة");
+            return ControlResult.Success(enable ? Strings.T("ctl.task-enabled") : Strings.T("ctl.task-disabled"));
         }
         catch (UnauthorizedAccessException)
         {
-            return ControlResult.Elevate("هذه المهمة تحتاج صلاحية المدير");
+            return ControlResult.Elevate(Strings.T("ctl.task-needs-admin"));
         }
         catch (Exception ex)
         {
             // The COM layer reports access denied as a plain COMException.
             return ex.Message.Contains("denied", StringComparison.OrdinalIgnoreCase)
-                ? ControlResult.Elevate("هذه المهمة تحتاج صلاحية المدير")
+                ? ControlResult.Elevate(Strings.T("ctl.task-needs-admin"))
                 : ControlResult.Fail(ex.Message);
         }
     }
 
     private static ControlResult SetServiceEnabled(AutorunEntry entry, bool enable)
     {
-        if (string.IsNullOrEmpty(entry.ServiceName)) return ControlResult.Fail("لا يمكن تحديد الخدمة");
+        if (string.IsNullOrEmpty(entry.ServiceName)) return ControlResult.Fail(Strings.T("ctl.no-service"));
         try
         {
             using var baseKey = RegistryKey.OpenBaseKey(RegistryHive.LocalMachine, RegistryView.Registry64);
             using var key = baseKey.OpenSubKey($@"SYSTEM\CurrentControlSet\Services\{entry.ServiceName}", writable: true);
-            if (key is null) return ControlResult.Fail("الخدمة غير موجودة");
+            if (key is null) return ControlResult.Fail(Strings.T("ctl.service-missing"));
 
             // 2 = automatic, 4 = disabled. Restoring to automatic is the safe default: a
             // service we disabled was auto-starting, or it would never have been listed.
@@ -139,12 +141,12 @@ public static class AutorunControl
             entry.Enabled = enable;
             Remember(entry, enable ? null : "service");
             return ControlResult.Success(enable
-                ? "أعيد تفعيل الخدمة — تعمل بعد إعادة التشغيل"
-                : "عطلت الخدمة — تتوقف بعد إعادة التشغيل");
+                ? Strings.T("ctl.service-enabled")
+                : Strings.T("ctl.service-disabled"));
         }
         catch (UnauthorizedAccessException)
         {
-            return ControlResult.Elevate("تعطيل خدمة يحتاج صلاحية المدير");
+            return ControlResult.Elevate(Strings.T("ctl.service-needs-admin"));
         }
         catch (Exception ex) { return ControlResult.Fail(ex.Message); }
     }
@@ -166,26 +168,26 @@ public static class AutorunControl
                 {
                     using var baseKey = RegistryKey.OpenBaseKey(entry.Hive, entry.View);
                     using var key = baseKey.OpenSubKey(entry.KeyPath!, writable: true);
-                    if (key is null) return ControlResult.Fail("تعذر فتح مفتاح السجل");
+                    if (key is null) return ControlResult.Fail(Strings.T("ctl.no-key"));
                     Remember(entry, "removed");
                     key.DeleteValue(entry.ValueName!, throwOnMissingValue: false);
-                    return ControlResult.Success("حذف المدخل من السجل");
+                    return ControlResult.Success(Strings.T("ctl.removed-registry"));
                 }
                 case AutorunKind.StartupFolder:
                 {
                     if (entry.ItemPath is null || !File.Exists(entry.ItemPath))
-                        return ControlResult.Fail("الملف غير موجود");
+                        return ControlResult.Fail(Strings.T("ctl.file-missing"));
                     Remember(entry, "removed");
                     File.Delete(entry.ItemPath);
-                    return ControlResult.Success("حذف من مجلد بدء التشغيل");
+                    return ControlResult.Success(Strings.T("ctl.removed-startup"));
                 }
                 default:
-                    return ControlResult.Fail("الخدمات والمهام تعطل ولا تحذف");
+                    return ControlResult.Fail(Strings.T("ctl.no-delete"));
             }
         }
         catch (UnauthorizedAccessException)
         {
-            return ControlResult.Elevate("الحذف يحتاج صلاحية المدير");
+            return ControlResult.Elevate(Strings.T("ctl.delete-needs-admin"));
         }
         catch (Exception ex) { return ControlResult.Fail(ex.Message); }
     }

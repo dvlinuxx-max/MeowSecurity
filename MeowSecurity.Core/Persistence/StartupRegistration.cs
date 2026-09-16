@@ -1,3 +1,5 @@
+using MeowSecurity.Core.Localization;
+
 namespace MeowSecurity.Core.Persistence;
 
 /// <summary>
@@ -41,18 +43,18 @@ public static class StartupRegistration
     public static ControlResult Register(string executablePath)
     {
         if (!File.Exists(executablePath))
-            return ControlResult.Fail("لم يعثر على ملف البرنامج");
+            return ControlResult.Fail(Strings.T("startup.no-exe"));
 
         try
         {
             dynamic? service = Connect();
-            if (service is null) return ControlResult.Fail("خدمة جدولة المهام غير متاحة");
+            if (service is null) return ControlResult.Fail(Strings.T("ctl.no-scheduler"));
 
             string user = $"{Environment.UserDomainName}\\{Environment.UserName}";
             dynamic definition = service.NewTask(0);
 
             definition.RegistrationInfo.Description =
-                "يشغل Meow Security مع بدء ويندوز بصلاحية كاملة حتى تعمل المراقبة اللحظية.";
+                Strings.T("startup.description");
             definition.RegistrationInfo.Author = "Meow Security";
 
             definition.Principal.UserId = user;
@@ -80,17 +82,17 @@ public static class StartupRegistration
             service.GetFolder(@"\").RegisterTaskDefinition(
                 TaskName, definition, CreateOrUpdate, null, null, LogonInteractiveToken);
 
-            return ControlResult.Success("سيعمل مع بدء ويندوز بصلاحية كاملة");
+            return ControlResult.Success(Strings.T("startup.registered"));
         }
         catch (UnauthorizedAccessException)
         {
-            return ControlResult.Elevate("التسجيل يحتاج صلاحية المدير مرة واحدة");
+            return ControlResult.Elevate(Strings.T("startup.needs-admin"));
         }
         catch (Exception ex)
         {
             return ex.Message.Contains("denied", StringComparison.OrdinalIgnoreCase) ||
                    ex.Message.Contains("0x80070005", StringComparison.OrdinalIgnoreCase)
-                ? ControlResult.Elevate("التسجيل يحتاج صلاحية المدير مرة واحدة")
+                ? ControlResult.Elevate(Strings.T("startup.needs-admin"))
                 : ControlResult.Fail(ex.Message);
         }
     }
@@ -100,15 +102,15 @@ public static class StartupRegistration
         try
         {
             dynamic? service = Connect();
-            if (service is null) return ControlResult.Fail("خدمة جدولة المهام غير متاحة");
+            if (service is null) return ControlResult.Fail(Strings.T("ctl.no-scheduler"));
 
             service.GetFolder(@"\").DeleteTask(TaskName, 0);
-            return ControlResult.Success("لن يعمل مع بدء ويندوز");
+            return ControlResult.Success(Strings.T("startup.unregistered"));
         }
         catch (Exception ex)
         {
             return ex.Message.Contains("denied", StringComparison.OrdinalIgnoreCase)
-                ? ControlResult.Elevate("الإلغاء يحتاج صلاحية المدير")
+                ? ControlResult.Elevate(Strings.T("startup.remove-admin"))
                 : ControlResult.Fail(ex.Message);
         }
     }

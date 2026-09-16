@@ -5,6 +5,8 @@ using MeowSecurity.Core.Memory;
 using MeowSecurity.Core.Network;
 using MeowSecurity.Core.Processes;
 
+using MeowSecurity.Core.Localization;
+
 namespace MeowSecurity.Core.Live;
 
 /// <summary>
@@ -162,7 +164,7 @@ public sealed class LiveEnricher
         var reasons = new List<string>();
         if (hidden)
         {
-            reasons.Add("مخفية عن أحد مصدري تعداد العمليات");
+            reasons.Add(Strings.T("live.hidden"));
             return (Verdict.Suspicious, reasons);
         }
 
@@ -174,27 +176,27 @@ public sealed class LiveEnricher
         switch (sig)
         {
             case SignatureState.SignedInvalid:
-                reasons.Add("توقيع رقمي غير صالح");
+                reasons.Add(Strings.T("autorun.bad-signature"));
                 verdict = Verdict.Suspicious;
                 break;
             case SignatureState.Unsigned when path is not null && !inSystem &&
                     (path.Contains(@"\temp\") || path.Contains(@"\appdata\local\temp")):
-                reasons.Add("غير موقعة وتعمل من مجلد مؤقت");
+                reasons.Add(Strings.T("live.unsigned-temp"));
                 verdict = Verdict.Suspicious;
                 break;
             case SignatureState.Unsigned when path is not null && !inSystem:
-                reasons.Add("غير موقعة خارج مجلدات النظام");
+                reasons.Add(Strings.T("live.unsigned-out"));
                 verdict = Verdict.Review;
                 break;
             default:
                 if (sig is SignatureState.Unknown && !KnownSystem.Contains(name) && imagePath is null)
-                    reasons.Add("تعذر الفحص (شغل بصلاحية المدير)");
+                    reasons.Add(Strings.T("live.opaque"));
                 break;
         }
 
         if (implanted)
         {
-            reasons.Add("وحدة PE تعمل من ذاكرة غير مدعومة — كود محقون على الأرجح");
+            reasons.Add(Strings.T("live.implanted"));
             verdict = Verdict.Suspicious;
         }
         return (verdict, reasons);

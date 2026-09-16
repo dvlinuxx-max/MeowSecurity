@@ -2,6 +2,8 @@ using Microsoft.Win32;
 using MeowSecurity.Core.Intel;
 using MeowSecurity.Core.Processes;
 
+using MeowSecurity.Core.Localization;
+
 namespace MeowSecurity.Core.Persistence;
 
 /// <summary>
@@ -35,8 +37,8 @@ public sealed class AutorunScanner
         foreach (var (hive, view, path, label) in RunKeys)
             ReadRunKey(hive, view, path, label, list);
 
-        ReadStartupFolder(Environment.GetFolderPath(Environment.SpecialFolder.Startup), "بدء تشغيل المستخدم", list);
-        ReadStartupFolder(Environment.GetFolderPath(Environment.SpecialFolder.CommonStartup), "بدء تشغيل النظام", list);
+        ReadStartupFolder(Environment.GetFolderPath(Environment.SpecialFolder.Startup), Strings.T("autorun.user-startup"), list);
+        ReadStartupFolder(Environment.GetFolderPath(Environment.SpecialFolder.CommonStartup), Strings.T("autorun.system-startup"), list);
 
         ReadServices(list);
         ReadScheduledTasks(list);
@@ -97,7 +99,7 @@ public sealed class AutorunScanner
                     {
                         Name = key.GetValue("DisplayName")?.ToString() is { Length: > 0 } d && !d.StartsWith('@')
                             ? d : name,
-                        Location = driver ? "مشغل نظام" : "خدمة",
+                        Location = driver ? Strings.T("autorun.driver") : Strings.T("autorun.service"),
                         Command = command,
                         ImagePath = exe,
                         Kind = AutorunKind.Service,
@@ -151,7 +153,7 @@ public sealed class AutorunScanner
                         list.Add(new AutorunEntry
                         {
                             Name = task.Name,
-                            Location = "مهمة مجدولة",
+                            Location = Strings.T("autorun.task"),
                             Command = args.Length > 0 ? $"{full} {args}" : full,
                             ImagePath = Path.IsPathRooted(full) ? full : ResolveExe(full),
                             Kind = AutorunKind.ScheduledTask,
@@ -322,7 +324,7 @@ public sealed class AutorunScanner
             !tell.Equals("in-line remote download", StringComparison.Ordinal))
         {
             e.Verdict = Verdict.Suspicious;
-            e.Reason = $"سطر أوامر مريب — {tell}";
+            e.Reason = Strings.T("autorun.bad-command", tell);
             if (e.ImagePath is { Length: > 0 } p && File.Exists(p))
             {
                 var (st, pub) = SignatureCache.Get(p);
@@ -336,13 +338,13 @@ public sealed class AutorunScanner
         if (string.IsNullOrEmpty(path))
         {
             e.Verdict = Verdict.Review;
-            e.Reason = "تعذر تحديد الملف المستهدف";
+            e.Reason = Strings.T("autorun.no-target");
             return;
         }
         if (!File.Exists(path))
         {
             e.Verdict = Verdict.Suspicious;
-            e.Reason = "الملف المستهدف غير موجود";
+            e.Reason = Strings.T("autorun.target-missing");
             return;
         }
 
@@ -358,23 +360,23 @@ public sealed class AutorunScanner
         {
             case SignatureState.SignedInvalid:
                 e.Verdict = Verdict.Suspicious;
-                e.Reason = "توقيع رقمي غير صالح";
+                e.Reason = Strings.T("autorun.bad-signature");
                 break;
             case SignatureState.Unsigned when inTemp:
                 e.Verdict = Verdict.Suspicious;
-                e.Reason = "غير موقع ويعمل من مجلد مؤقت";
+                e.Reason = Strings.T("autorun.unsigned-temp");
                 break;
             case SignatureState.Unsigned when !inSystem:
                 e.Verdict = Verdict.Review;
-                e.Reason = "غير موقع خارج مجلدات النظام";
+                e.Reason = Strings.T("autorun.unsigned-out");
                 break;
             case SignatureState.Unsigned:
                 e.Verdict = Verdict.Review;
-                e.Reason = "غير موقع";
+                e.Reason = Strings.T("autorun.unsigned");
                 break;
             default:
                 e.Verdict = Verdict.Safe;
-                e.Reason = "موقع";
+                e.Reason = Strings.T("autorun.signed");
                 break;
         }
     }

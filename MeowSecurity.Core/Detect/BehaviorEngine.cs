@@ -1,4 +1,5 @@
 using MeowSecurity.Core.Intel;
+using MeowSecurity.Core.Localization;
 using MeowSecurity.Core.Processes;
 
 namespace MeowSecurity.Core.Detect;
@@ -85,77 +86,78 @@ public static class BehaviorEngine
 
         if (ctx.IsHidden)
             found.Add(new Detection("stealth.hidden", Severity.Critical, 80,
-                "عملية مخفية عن التعداد",
-                "ظهرت في مصدر تعداد واحد فقط — سلوك جذور خفية (rootkit).", "T1014"));
+                Strings.T("detect.hidden.title"),
+                Strings.T("detect.hidden.detail"), "T1014"));
 
         if (ctx.HasImplantedPe)
             found.Add(new Detection("memory.implanted-pe", Severity.Critical, 75,
-                "كود محقون في الذاكرة",
-                "وحدة PE تعمل من ذاكرة غير مدعومة بملف على القرص.", "T1055"));
+                Strings.T("detect.implanted.title"),
+                Strings.T("detect.implanted.detail"), "T1055"));
 
         if (ctx.Signature == SignatureState.SignedInvalid)
             found.Add(new Detection("sign.invalid", Severity.High, 45,
-                "توقيع رقمي غير صالح",
-                "الملف موقع لكن التوقيع مكسور — عدل بعد التوقيع أو انتحل ناشرا.", "T1553"));
+                Strings.T("detect.badsign.title"),
+                Strings.T("detect.badsign.detail"), "T1553"));
 
         // ---- masquerading: the right name in the wrong place ----
 
         if (path is not null && SystemImages.Contains(ctx.Name) &&
             !path.StartsWith(WinDir, StringComparison.Ordinal))
             found.Add(new Detection("masquerade.system-name", Severity.Critical, 70,
-                $"اسم نظام من مسار غريب: {ctx.Name}",
-                $"صورة نظام تعمل من {ctx.ImagePath} بدلا من مجلد ويندوز.", "T1036.005"));
+                Strings.T("detect.masquerade.title", ctx.Name),
+                Strings.T("detect.masquerade.detail", ctx.ImagePath), "T1036.005"));
 
         if (HasDoubleExtension(ctx.Name))
             found.Add(new Detection("masquerade.double-extension", Severity.High, 40,
-                $"امتداد مزدوج: {ctx.Name}",
-                "الاسم يظهر امتداد مستند بينما الملف تنفيذي.", "T1036.007"));
+                Strings.T("detect.doubleext.title", ctx.Name),
+                Strings.T("detect.doubleext.detail"), "T1036.007"));
 
         // ---- living off the land: trusted tools used in untrusted ways ----
 
         if (lolbin && LolbinRules.IsSuspiciousParent(ctx.ParentName))
             found.Add(new Detection("lolbin.office-parent", Severity.Critical, 70,
-                $"{ctx.ParentName} شغل {ctx.Name}",
-                "مستند أو سكربت أطلق أداة نظام — النمط الكلاسيكي لماكرو خبيث.", "T1566.001"));
+                Strings.T("detect.officeparent.title", ctx.ParentName, ctx.Name),
+                Strings.T("detect.officeparent.detail"), "T1566.001"));
 
         var cmdTell = LolbinRules.SuspiciousCommandLine(ctx.CommandLine);
         if (cmdTell == "encoded PowerShell command")
             found.AddRange(JudgeEncodedCommand(ctx));
         else if (cmdTell is not null)
         {
-            var (weight, severity, arabic) = Tells.TryGetValue(cmdTell, out var t)
+            var (weight, severity, key) = Tells.TryGetValue(cmdTell, out var t)
                 ? t : (50, Severity.High, cmdTell);
+            string tellText = Strings.T(key);
             found.Add(new Detection("lolbin.command-line", severity, weight,
-                $"سطر أوامر مريب: {ctx.Name}", arabic, "T1059"));
+                Strings.T("detect.cmdline.title", ctx.Name), tellText, "T1059"));
         }
 
         if (lolbin && fromUserLand)
             found.Add(new Detection("lolbin.user-path", Severity.Medium, 25,
-                $"أداة نظام من مجلد المستخدم: {ctx.Name}",
-                $"نسخة من أداة النظام تعمل من {ctx.ImagePath}.", "T1036"));
+                Strings.T("detect.lolbinpath.title", ctx.Name),
+                Strings.T("detect.lolbinpath.detail", ctx.ImagePath), "T1036"));
 
         if (ScriptHosts.Contains(ctx.Name) && fromUserLand)
             found.Add(new Detection("script.user-path", Severity.Medium, 30,
-                $"مشغل سكربتات من مجلد المستخدم: {ctx.Name}",
-                "مضيف سكربت يعمل على محتوى من مجلد قابل للكتابة.", "T1059.005"));
+                Strings.T("detect.scriptpath.title", ctx.Name),
+                Strings.T("detect.scriptpath.detail"), "T1059.005"));
 
         if (ctx.Name.Equals("rundll32.exe", StringComparison.OrdinalIgnoreCase) &&
             string.IsNullOrWhiteSpace(StripImage(ctx.CommandLine)))
             found.Add(new Detection("lolbin.bare-rundll32", Severity.High, 40,
-                "rundll32 بلا وسائط",
-                "rundll32 بلا DLL — غالبا هدف حقن أو عملية مفرغة.", "T1055.012"));
+                Strings.T("detect.rundll32.title"),
+                Strings.T("detect.rundll32.detail"), "T1055.012"));
 
         // ---- location and trust ----
 
         if (ctx.Signature == SignatureState.Unsigned && fromUserLand)
             found.Add(new Detection("trust.unsigned-userland", Severity.Medium, 30,
-                $"غير موقعة من مجلد قابل للكتابة: {ctx.Name}",
-                $"تعمل من {ctx.ImagePath} بلا توقيع رقمي.", "T1204"));
+                Strings.T("detect.unsigned.title", ctx.Name),
+                Strings.T("detect.unsigned.detail", ctx.ImagePath), "T1204"));
 
         if (ctx.Signature == SignatureState.Unsigned && ctx.RemoteConnections > 0 && fromUserLand)
             found.Add(new Detection("network.unsigned-remote", Severity.High, 40,
-                $"اتصال خارجي من ملف غير موقع: {ctx.Name}",
-                $"{ctx.RemoteConnections} اتصال خارجي نشط.", "T1071"));
+                Strings.T("detect.unsignednet.title", ctx.Name),
+                Strings.T("detect.unsignednet.detail", ctx.RemoteConnections), "T1071"));
 
         int score = Math.Min(100, found.Sum(d => d.Score));
         return new BehaviorResult(ctx, found, score);
@@ -176,22 +178,23 @@ public static class BehaviorEngine
 
         if (script is null)
             return [new Detection("lolbin.command-line", Severity.High, 50,
-                $"سطر أوامر مريب: {ctx.Name}",
-                "أمر PowerShell مرمز تعذر فك ترميزه.", "T1059.001")];
+                Strings.T("detect.cmdline.title", ctx.Name),
+                Strings.T("detect.encoded.undecodable"), "T1059.001")];
 
         var inner = LolbinRules.SuspiciousCommandLine(script);
         if (inner is not null && inner != "encoded PowerShell command")
         {
-            var (weight, _, arabic) = Tells.TryGetValue(inner, out var t) ? t : (50, Severity.High, inner);
+            var (weight, _, key) = Tells.TryGetValue(inner, out var t) ? t : (50, Severity.High, inner);
+            string tellText = Strings.T(key);
             // Hiding an attack is worse than running one in the open, so the encoding adds to it.
             return [new Detection("lolbin.encoded-payload", Severity.Critical, Math.Min(90, weight + 25),
-                $"أمر مرمز يخفي سلوكا خطيرا: {ctx.Name}",
-                $"{arabic} — الأمر بعد فك الترميز: {Excerpt(script)}", "T1027")];
+                Strings.T("detect.encoded.hiding", ctx.Name),
+                Strings.T("detect.encoded.decoded", tellText, Excerpt(script)), "T1027")];
         }
 
         return [new Detection("lolbin.command-line", Severity.Low, 10,
-            $"أمر PowerShell مرمز: {ctx.Name}",
-            $"فك الترميز ولا يحتوي سلوكا مريبا: {Excerpt(script)}", "T1059.001")];
+            Strings.T("detect.encoded.ordinary.title", ctx.Name),
+            Strings.T("detect.encoded.ordinary.detail", Excerpt(script)), "T1059.001")];
     }
 
     private static string Excerpt(string script)
@@ -235,27 +238,118 @@ public static class BehaviorEngine
     /// do, so it stays under the alert floor: recorded, never a pop-up. Hiding what you are
     /// about to run is a different matter.
     /// </summary>
-    private static readonly Dictionary<string, (int Score, Severity Severity, string Arabic)> Tells = new()
+    private static readonly Dictionary<string, (int Score, Severity Severity, string Key)> Tells = new()
     {
-        ["encoded PowerShell command"] =
-            (50, Severity.High, "أمر PowerShell مرمز بـ Base64 لإخفاء محتواه."),
-        ["hidden no-profile PowerShell"] =
-            (45, Severity.High, "PowerShell بنافذة مخفية وبلا ملف تعريف."),
-        ["Invoke-Expression of downloaded code"] =
-            (55, Severity.High, "تنفيذ كود منزل مباشرة في الذاكرة دون لمس القرص."),
-        ["certutil used to download/decode"] =
-            (50, Severity.High, "certutil مستخدمة للتنزيل أو فك الترميز."),
-        ["bitsadmin file transfer"] =
-            (45, Severity.High, "bitsadmin ينقل ملفا — قناة تنزيل خفية."),
-        ["regsvr32 remote scriptlet (squiblydoo)"] =
-            (60, Severity.High, "regsvr32 ينفذ سكربتا بعيدا (squiblydoo)."),
-        ["rundll32 javascript payload"] =
-            (55, Severity.High, "rundll32 ينفذ حمولة JavaScript."),
-        ["mshta remote/script payload"] =
-            (55, Severity.High, "mshta ينفذ حمولة بعيدة أو سكربتا."),
+        ["encoded PowerShell command"] = (50, Severity.High, "tell.encoded"),
+        ["hidden no-profile PowerShell"] = (45, Severity.High, "tell.hidden-window"),
+        ["Invoke-Expression of downloaded code"] = (55, Severity.High, "tell.iex-download"),
+        ["certutil used to download/decode"] = (50, Severity.High, "tell.certutil"),
+        ["bitsadmin file transfer"] = (45, Severity.High, "tell.bitsadmin"),
+        ["regsvr32 remote scriptlet (squiblydoo)"] = (60, Severity.High, "tell.squiblydoo"),
+        ["rundll32 javascript payload"] = (55, Severity.High, "tell.rundll32-js"),
+        ["mshta remote/script payload"] = (55, Severity.High, "tell.mshta"),
 
         // Common enough in honest work that it only earns a line in the log.
-        ["in-line remote download"] =
-            (10, Severity.Low, "تنزيل ملف من الإنترنت داخل سطر الأوامر."),
+        ["in-line remote download"] = (10, Severity.Low, "tell.download"),
     };
+
+    static BehaviorEngine() => Strings.Register(Text);
+
+    private static readonly Dictionary<string, (string Ar, string En)> Text = new()
+    {
+        ["detect.hidden.title"] = ("عملية مخفية عن التعداد", "Process hidden from enumeration"),
+        ["detect.hidden.detail"] = (
+            "ظهرت في مصدر تعداد واحد فقط — سلوك جذور خفية (rootkit).",
+            "Visible to only one of two enumeration sources — rootkit behaviour."),
+
+        ["detect.implanted.title"] = ("كود محقون في الذاكرة", "Injected code in memory"),
+        ["detect.implanted.detail"] = (
+            "وحدة PE تعمل من ذاكرة غير مدعومة بملف على القرص.",
+            "A PE module is running from memory with no file behind it."),
+
+        ["detect.badsign.title"] = ("توقيع رقمي غير صالح", "Invalid digital signature"),
+        ["detect.badsign.detail"] = (
+            "الملف موقع لكن التوقيع مكسور — عدل بعد التوقيع أو انتحل ناشرا.",
+            "Signed but the signature is broken — modified after signing, or impersonating a publisher."),
+
+        ["detect.masquerade.title"] = ("اسم نظام من مسار غريب: {0}", "System name from an unexpected path: {0}"),
+        ["detect.masquerade.detail"] = (
+            "صورة نظام تعمل من {0} بدلا من مجلد ويندوز.",
+            "A system image running from {0} instead of the Windows folder."),
+
+        ["detect.doubleext.title"] = ("امتداد مزدوج: {0}", "Double extension: {0}"),
+        ["detect.doubleext.detail"] = (
+            "الاسم يظهر امتداد مستند بينما الملف تنفيذي.",
+            "The name shows a document extension while the file is an executable."),
+
+        ["detect.officeparent.title"] = ("{0} شغل {1}", "{0} launched {1}"),
+        ["detect.officeparent.detail"] = (
+            "مستند أو سكربت أطلق أداة نظام — النمط الكلاسيكي لماكرو خبيث.",
+            "A document or script launched a system tool — the classic malicious-macro pattern."),
+
+        ["detect.cmdline.title"] = ("سطر أوامر مريب: {0}", "Suspicious command line: {0}"),
+
+        ["detect.lolbinpath.title"] = ("أداة نظام من مجلد المستخدم: {0}", "System tool from a user folder: {0}"),
+        ["detect.lolbinpath.detail"] = (
+            "نسخة من أداة النظام تعمل من {0}.",
+            "A copy of the system tool running from {0}."),
+
+        ["detect.scriptpath.title"] = ("مشغل سكربتات من مجلد المستخدم: {0}", "Script host from a user folder: {0}"),
+        ["detect.scriptpath.detail"] = (
+            "مضيف سكربت يعمل على محتوى من مجلد قابل للكتابة.",
+            "A script host running content from a writable folder."),
+
+        ["detect.rundll32.title"] = ("rundll32 بلا وسائط", "rundll32 with no arguments"),
+        ["detect.rundll32.detail"] = (
+            "rundll32 بلا DLL — غالبا هدف حقن أو عملية مفرغة.",
+            "rundll32 with no DLL — usually an injection host or a hollowed process."),
+
+        ["detect.unsigned.title"] = ("غير موقعة من مجلد قابل للكتابة: {0}", "Unsigned, from a writable folder: {0}"),
+        ["detect.unsigned.detail"] = (
+            "تعمل من {0} بلا توقيع رقمي.",
+            "Running from {0} with no digital signature."),
+
+        ["detect.unsignednet.title"] = ("اتصال خارجي من ملف غير موقع: {0}", "Unsigned file talking to the internet: {0}"),
+        ["detect.unsignednet.detail"] = ("{0} اتصال خارجي نشط.", "{0} active outbound connections."),
+
+        ["detect.encoded.undecodable"] = (
+            "أمر PowerShell مرمز تعذر فك ترميزه.",
+            "An encoded PowerShell command that could not be decoded."),
+        ["detect.encoded.hiding"] = (
+            "أمر مرمز يخفي سلوكا خطيرا: {0}",
+            "Encoded command hiding dangerous behaviour: {0}"),
+        ["detect.encoded.decoded"] = (
+            "{0} — الأمر بعد فك الترميز: {1}",
+            "{0} — decoded command: {1}"),
+        ["detect.encoded.ordinary.title"] = ("أمر PowerShell مرمز: {0}", "Encoded PowerShell command: {0}"),
+        ["detect.encoded.ordinary.detail"] = (
+            "فك الترميز ولا يحتوي سلوكا مريبا: {0}",
+            "Decoded, and contains nothing suspicious: {0}"),
+
+        // Command-line tells, shared by the plain and the encoded paths.
+        ["tell.encoded"] = (
+            "أمر PowerShell مرمز بـ Base64 لإخفاء محتواه.",
+            "A PowerShell command Base64-encoded to hide what it does."),
+        ["tell.hidden-window"] = (
+            "PowerShell بنافذة مخفية وبلا ملف تعريف.",
+            "PowerShell with a hidden window and no profile."),
+        ["tell.iex-download"] = (
+            "تنفيذ كود منزل مباشرة في الذاكرة دون لمس القرص.",
+            "Downloaded code executed straight in memory, never touching disk."),
+        ["tell.certutil"] = (
+            "certutil مستخدمة للتنزيل أو فك الترميز.",
+            "certutil used to download or decode."),
+        ["tell.bitsadmin"] = (
+            "bitsadmin ينقل ملفا — قناة تنزيل خفية.",
+            "bitsadmin transferring a file — a quiet download channel."),
+        ["tell.squiblydoo"] = (
+            "regsvr32 ينفذ سكربتا بعيدا (squiblydoo).",
+            "regsvr32 executing a remote scriptlet (squiblydoo)."),
+        ["tell.rundll32-js"] = ("rundll32 ينفذ حمولة JavaScript.", "rundll32 executing a JavaScript payload."),
+        ["tell.mshta"] = ("mshta ينفذ حمولة بعيدة أو سكربتا.", "mshta executing a remote or script payload."),
+        ["tell.download"] = (
+            "تنزيل ملف من الإنترنت داخل سطر الأوامر.",
+            "A file downloaded from the internet inside the command line."),
+    };
+
 }

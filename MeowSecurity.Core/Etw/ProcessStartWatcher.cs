@@ -2,6 +2,8 @@ using Microsoft.Diagnostics.Tracing.Parsers;
 using Microsoft.Diagnostics.Tracing.Parsers.Kernel;
 using Microsoft.Diagnostics.Tracing.Session;
 
+using MeowSecurity.Core.Localization;
+
 namespace MeowSecurity.Core.Etw;
 
 /// <summary>A process the kernel told us about the moment it started.</summary>
@@ -104,7 +106,7 @@ public sealed class ProcessStartWatcher : IDisposable
         if (!IsElevated())
         {
             State = EtwState.NeedsElevation;
-            Error = "التقاط الأحداث اللحظية يحتاج صلاحية المدير";
+            Error = Strings.T("etw.needs-admin");
             return false;
         }
 
@@ -155,7 +157,7 @@ public sealed class ProcessStartWatcher : IDisposable
         catch (UnauthorizedAccessException)
         {
             State = EtwState.NeedsElevation;
-            Error = "التقاط الأحداث اللحظية يحتاج صلاحية المدير";
+            Error = Strings.T("etw.needs-admin");
             return false;
         }
         catch (Exception ex)
