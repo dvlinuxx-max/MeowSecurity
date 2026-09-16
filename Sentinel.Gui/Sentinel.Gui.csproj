@@ -10,6 +10,7 @@
     <RootNamespace>Sentinel.Gui</RootNamespace>
     <AssemblyName>Sentinel</AssemblyName>
     <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>sentinel.ico</ApplicationIcon>
   </PropertyGroup>
 
   <ItemGroup>
@@ -18,6 +19,7 @@
 
   <ItemGroup>
     <Resource Include="Fonts\*.ttf" />
+    <Resource Include="sentinel.ico" />
   </ItemGroup>
 
 </Project>

@@ -27,6 +27,10 @@ public partial class MainWindow : Window
     private readonly HashSet<int> _alerted = [];
     private readonly DispatcherTimer _toastTimer = new() { Interval = TimeSpan.FromSeconds(9) };
 
+    private TrayIcon? _tray;
+    private bool _exiting;
+    private bool _toldUserAboutTray;
+
     private readonly EventStore _events = new();
     private readonly BehaviorWatcher _watcher;
     private readonly ObservableCollection<EventRow> _eventRows = [];
@@ -62,7 +66,8 @@ public partial class MainWindow : Window
 
         ShowPage("overview");
         Loaded += (_, _) => { Tick(); _timer.Tick += (_, _) => Tick(); _timer.Start(); };
-        Closed += (_, _) => { _reputation.Dispose(); _intel.Dispose(); };
+        Closing += OnClosing;
+        Closed += (_, _) => { _reputation.Dispose(); _intel.Dispose(); _tray?.Dispose(); };
     }
 
     // ---------------- settings ----------------
@@ -247,6 +252,89 @@ public partial class MainWindow : Window
 
         // First time the autoruns page is opened, scan automatically.
         if (tag == "autoruns" && !_autorunsScanned) ScanAutoruns();
+    }
+
+    // ---------------- background monitoring ----------------
+
+    /// <summary>
+    /// Closing the window is not the same as quitting. With background monitoring on, the
+    /// window goes away and the engine keeps running behind a tray icon — which is the only
+    /// arrangement under which the event log is worth anything, since the interesting things
+    /// happen while nobody is looking at the screen.
+    /// </summary>
+    private void OnClosing(object? sender, System.ComponentModel.CancelEventArgs e)
+    {
+        if (_exiting || !_settings.RunInBackground) return;
+
+        EnsureTray();
+        if (_tray?.IsVisible != true)
+        {
+            // The shell refused the icon. Hiding now would strand a running monitor with no
+            // way back to it, so close for real instead.
+            _tray?.Dispose();
+            _tray = null;
+            return;
+        }
+
+        e.Cancel = true;
+        Hide();
+
+        // Say it once. A tray icon that swallows the window without a word feels like a bug.
+        if (!_toldUserAboutTray)
+        {
+            _toldUserAboutTray = true;
+            _tray?.Notify("Sentinel ما زال يراقب",
+                "المراقبة تعمل في الخلفية. انقر الأيقونة للعودة، أو أوقفها من قائمة اليمين.", serious: false);
+        }
+    }
+
+    private void EnsureTray()
+    {
+        if (_tray is not null) return;
+
+        _tray = new TrayIcon("Sentinel — المراقبة تعمل");
+        _tray.Activated += RestoreFromTray;
+        _tray.ContextMenuRequested += ShowTrayMenu;
+    }
+
+    private void RestoreFromTray()
+    {
+        Show();
+        WindowState = WindowState.Normal;
+        Activate();
+    }
+
+    private void ShowTrayMenu()
+    {
+        _tray?.PrepareForMenu();
+
+        var menu = new ContextMenu { Placement = System.Windows.Controls.Primitives.PlacementMode.MousePoint };
+        menu.Items.Add(Item("فتح Sentinel", RestoreFromTray));
+        menu.Items.Add(Item(_paused ? "استئناف المراقبة" : "إيقاف المراقبة مؤقتاً", () =>
+        {
+            OnPauseToggle(this, new RoutedEventArgs());
+            _tray?.UpdateTip(_paused ? "Sentinel — المراقبة متوقفة" : "Sentinel — المراقبة تعمل");
+        }));
+        menu.Items.Add(new Separator());
+        menu.Items.Add(Item("خروج", ExitApp));
+        menu.IsOpen = true;
+
+        static MenuItem Item(string header, Action onClick)
+        {
+            var item = new MenuItem { Header = header };
+            item.Click += (_, _) => onClick();
+            return item;
+        }
+    }
+
+    private void ExitApp()
+    {
+        _exiting = true;
+        _timer.Stop();
+        _tray?.Dispose();
+        _tray = null;
+        Close();
+        Application.Current.Shutdown();
     }
 
     // ---------------- security events ----------------
@@ -572,6 +660,15 @@ public partial class MainWindow : Window
 
     private void ShowAlert(string title, string detail, Brush accent)
     {
+        // With the window hidden the in-app toast would alert nobody. This is the moment the
+        // tray icon earns its keep: the same warning, delivered where the user can see it.
+        if (!IsVisible)
+        {
+            EnsureTray();
+            _tray?.Notify(title, detail, serious: true);
+            return;
+        }
+
         ToastTitle.Text = title;
         ToastDetail.Text = detail;
         ToastBar.Background = accent;
