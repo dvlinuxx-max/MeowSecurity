@@ -461,6 +461,37 @@ public partial class MainWindow : Window
     /// </summary>
     private AutorunRow? SelectedAutorun => AutorunGrid.SelectedItem as AutorunRow;
 
+    /// <summary>
+    /// A right-click in WPF does not select the row under the cursor, so a context menu opened
+    /// that way would act on whatever happened to be selected before — or on nothing at all.
+    /// </summary>
+    private void OnAutorunRightClick(object sender, System.Windows.Input.MouseButtonEventArgs e)
+    {
+        for (DependencyObject? d = e.OriginalSource as DependencyObject; d is not null;
+             d = System.Windows.Media.VisualTreeHelper.GetParent(d))
+        {
+            if (d is DataGridRow row)
+            {
+                row.IsSelected = true;
+                AutorunGrid.SelectedItem = row.Item;
+                return;
+            }
+        }
+    }
+
+    private void OnAutorunSelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        var row = SelectedAutorun;
+        bool has = row is not null;
+
+        AutorunLocateBtn.IsEnabled = has;
+        AutorunToggleBtn.IsEnabled = has;
+        AutorunRemoveBtn.IsEnabled = has &&
+            row!.Entry.Kind is Sentinel.Core.Persistence.AutorunKind.RunKey
+                            or Sentinel.Core.Persistence.AutorunKind.StartupFolder;
+        AutorunToggleBtn.Content = row?.Entry.Enabled == false ? "تفعيل" : "تعطيل";
+    }
+
     private void OnAutorunMenuOpened(object sender, RoutedEventArgs e)
     {
         var row = SelectedAutorun;

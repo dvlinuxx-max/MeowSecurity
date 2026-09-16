@@ -660,6 +660,12 @@
                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
                         <TextBlock x:Name="AutorunSummary" Text="" Foreground="{StaticResource Muted}"
                                    FontSize="12.5" VerticalAlignment="Center" Margin="0,0,14,0" />
+                        <Button x:Name="AutorunLocateBtn" Content="فتح الموقع" Style="{StaticResource Ghost}"
+                                Margin="0,0,8,0" IsEnabled="False" Click="OnAutorunOpenLocation" />
+                        <Button x:Name="AutorunToggleBtn" Content="تعطيل" Style="{StaticResource Ghost}"
+                                Margin="0,0,8,0" IsEnabled="False" Click="OnAutorunToggle" />
+                        <Button x:Name="AutorunRemoveBtn" Content="إزالة" Style="{StaticResource Ghost}"
+                                Margin="0,0,16,0" IsEnabled="False" Click="OnAutorunRemove" />
                         <ToggleButton x:Name="AutorunShowSystem" Style="{StaticResource GhostToggle}"
                                       Content="إظهار عناصر النظام" Margin="0,0,8,0"
                                       Checked="OnAutorunFilter" Unchecked="OnAutorunFilter" />
@@ -672,8 +678,9 @@
                     <Grid>
                         <TextBlock x:Name="AutorunHint" VerticalAlignment="Center" HorizontalAlignment="Center"
                                    Foreground="{StaticResource Faint}" FontSize="13.5"
-                                   Text="اضغط فحص لعرض كل ما يبدأ تلقائيا مع النظام." />
-                        <DataGrid x:Name="AutorunGrid">
+                                   Text="اضغط فحص لعرض كل ما يبدأ تلقائيا مع النظام. اختر مدخلا لتعطيله أو فتح موقعه." />
+                        <DataGrid x:Name="AutorunGrid" SelectionChanged="OnAutorunSelectionChanged"
+                                  PreviewMouseRightButtonDown="OnAutorunRightClick">
                             <DataGrid.ContextMenu>
                                 <ContextMenu Opened="OnAutorunMenuOpened">
                                     <MenuItem Header="فتح موقع الملف" Click="OnAutorunOpenLocation" />
