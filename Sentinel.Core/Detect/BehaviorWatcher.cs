@@ -25,7 +25,44 @@ public sealed class BehaviorWatcher
     /// Judges the current process list and returns only the events that are new this tick.
     /// Cheap enough for the one-second UI tick: local string work, no I/O beyond the append.
     /// </summary>
+    /// <summary>
+    /// Judges a single process the instant the kernel reports it, before the next poll — and
+    /// before it has a chance to exit. Shares the per-PID dedupe with the polling pass, so a
+    /// process caught here is not reported a second time a tick later.
+    ///
+    /// Called from an ETW thread, hence the lock.
+    /// </summary>
+    public SecurityEvent? InspectOne(ProcessContext ctx)
+    {
+        lock (_gate)
+        {
+            var result = BehaviorEngine.Evaluate(ctx);
+            if (result.IsEmpty) return null;
+
+            if (!_reported.TryGetValue(ctx.Pid, out var already))
+                _reported[ctx.Pid] = already = [];
+
+            var novel = result.Detections.Where(d => !already.Contains(d.Rule)).ToList();
+            if (novel.Count == 0) return null;
+            foreach (var d in novel) already.Add(d.Rule);
+
+            var ev = SecurityEvent.From(result with { Detections = novel });
+            _store.Append(ev);
+            return ev;
+        }
+    }
+
+    private readonly Lock _gate = new();
+
     public List<SecurityEvent> Inspect(IReadOnlyList<LiveProcess> rows)
+    {
+        lock (_gate)
+        {
+            return InspectCore(rows);
+        }
+    }
+
+    private List<SecurityEvent> InspectCore(IReadOnlyList<LiveProcess> rows)
     {
         var namesByPid = new Dictionary<int, string>(rows.Count);
         foreach (var r in rows) namesByPid[r.Pid] = r.Name;

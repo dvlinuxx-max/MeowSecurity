@@ -33,6 +33,7 @@ public partial class MainWindow : Window
 
     private readonly EventStore _events = new();
     private readonly BehaviorWatcher _watcher;
+    private readonly Sentinel.Core.Etw.ProcessStartWatcher _etw = new();
     private readonly ObservableCollection<EventRow> _eventRows = [];
     private ListCollectionView _eventsView = null!;
 
@@ -69,9 +70,9 @@ public partial class MainWindow : Window
         AboutVersion.Text = $"الإصدار {v?.Major ?? 0}.{v?.Minor ?? 1}  ·  رخصة GPL-3.0";
 
         ShowPage("overview");
-        Loaded += (_, _) => { Tick(); _timer.Tick += (_, _) => Tick(); _timer.Start(); };
+        Loaded += (_, _) => { Tick(); _timer.Tick += (_, _) => Tick(); _timer.Start(); StartLiveCapture(); };
         Closing += OnClosing;
-        Closed += (_, _) => { _reputation.Dispose(); _intel.Dispose(); _tray?.Dispose(); };
+        Closed += (_, _) => { _reputation.Dispose(); _intel.Dispose(); _tray?.Dispose(); _etw.Dispose(); };
     }
 
     // ---------------- settings ----------------
@@ -339,6 +340,55 @@ public partial class MainWindow : Window
         _tray = null;
         Close();
         Application.Current.Shutdown();
+    }
+
+    // ---------------- live capture (ETW) ----------------
+
+    /// <summary>
+    /// Judges every process the moment the kernel creates it.
+    ///
+    /// The one-second poll can only see what is still alive when it looks, and the processes
+    /// worth catching are precisely the ones that are not: an encoded PowerShell one-liner
+    /// runs and exits in a few hundred milliseconds. This closes that window. It needs
+    /// administrator rights; without them the poll still runs and the settings page says why.
+    /// </summary>
+    private void StartLiveCapture()
+    {
+        _etw.Started += OnProcessStarted;
+        _etw.Start();
+        UpdateCaptureStatus();
+    }
+
+    private void UpdateCaptureStatus()
+    {
+        if (CaptureStatus is null) return;
+        CaptureStatus.Text = _etw.State switch
+        {
+            Sentinel.Core.Etw.EtwState.Running => "الالتقاط اللحظي يعمل — يفحص كل عملية لحظة إنشائها",
+            Sentinel.Core.Etw.EtwState.NeedsElevation =>
+                "الالتقاط اللحظي متوقف — يحتاج صلاحية المدير. بدونه قد تفوت عمليات تعيش أقل من ثانية.",
+            _ => $"الالتقاط اللحظي غير متاح: {_etw.Error}",
+        };
+        CaptureStatus.Foreground = Res(_etw.State == Sentinel.Core.Etw.EtwState.Running ? "Green" : "Muted");
+    }
+
+    /// <summary>Arrives on an ETW thread, so everything touching the UI hops to the dispatcher.</summary>
+    private void OnProcessStarted(Sentinel.Core.Etw.ProcessStart p)
+    {
+        if (_paused) return;
+
+        var ctx = new ProcessContext(
+            p.Pid, p.Name, p.ParentPid, p.ParentName,
+            p.ImagePath, p.CommandLine,
+            // Verifying a signature here would block the ETW callback; the polling pass does
+            // it a moment later. What this catches is behaviour, which needs no file access.
+            SignatureState.Unknown,
+            IsHidden: false, HasImplantedPe: false, RemoteConnections: 0, SessionId: 0);
+
+        var ev = _watcher.InspectOne(ctx);
+        if (ev is null) return;
+
+        Dispatcher.BeginInvoke(() => RecordEvents([ev]));
     }
 
     // ---------------- security events ----------------

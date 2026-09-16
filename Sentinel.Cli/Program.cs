@@ -17,6 +17,32 @@ if (args.Contains("--rule-test"))
     return;
 }
 
+// Live process-start feed straight from the kernel. This is also how the ETW plumbing gets
+// verified: start it, run something short-lived, and watch it appear.
+if (args.Contains("--watch"))
+{
+    using var watcher = new Sentinel.Core.Etw.ProcessStartWatcher();
+    watcher.Started += p =>
+        Console.WriteLine($"  {p.TimeUtc.ToLocalTime():HH:mm:ss.fff}  {p.Name,-28} pid {p.Pid,-6} " +
+                          $"parent {p.ParentName ?? "?"} ({p.ParentPid})\n" +
+                          $"        {p.ImagePath}\n" +
+                          (p.CommandLine is null ? "" : $"        {p.CommandLine}\n"));
+
+    if (!watcher.Start())
+    {
+        Console.WriteLine($"ETW unavailable: {watcher.Error}");
+        Environment.ExitCode = 1;
+        return;
+    }
+
+    int seconds = Idx("--watch") + 1 < args.Length && int.TryParse(args[Idx("--watch") + 1], out int s) ? s : 20;
+    Console.WriteLine($"Watching process starts for {seconds}s (kernel ETW)\n" + new string('-', 78));
+    Thread.Sleep(seconds * 1000);
+    Console.WriteLine($"payload fields: {watcher.PayloadFields ?? "(no start event seen)"}");
+    Console.WriteLine("done.");
+    return;
+}
+
 if (args.Contains("--events"))
 {
     var store = new EventStore();
