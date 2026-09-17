@@ -266,7 +266,7 @@ public static class BehaviorEngine
     /// </summary>
     private static IEnumerable<Detection> JudgeEncodedCommand(ProcessContext ctx)
     {
-        string? script = LolbinRules.DecodeEncodedCommand(ctx.CommandLine);
+        string? script = LolbinRules.DecodeEncodedCommand(ctx.CommandLine, out bool complete);
 
         if (script is null)
             return [new Detection("lolbin.command-line", Severity.High, 50,
@@ -284,9 +284,17 @@ public static class BehaviorEngine
                 Strings.T("detect.encoded.decoded", tellText, Excerpt(script)), "T1027")];
         }
 
-        return [new Detection("lolbin.command-line", Severity.Low, 10,
-            Strings.T("detect.encoded.ordinary.title", ctx.Name),
-            Strings.T("detect.encoded.ordinary.detail", Excerpt(script)), "T1059.001")];
+        // Nothing suspicious in what we read — but if the command line was cut short before it
+        // reached us, "what we read" is the start of the script and not the whole of it. That
+        // is a weaker statement than a clean full decode, and it gets said as one rather than
+        // being quietly rounded up to innocent.
+        return complete
+            ? [new Detection("lolbin.command-line", Severity.Low, 10,
+                Strings.T("detect.encoded.ordinary.title", ctx.Name),
+                Strings.T("detect.encoded.ordinary.detail", Excerpt(script)), "T1059.001")]
+            : [new Detection("lolbin.command-line", Severity.Medium, 20,
+                Strings.T("detect.encoded.partial.title", ctx.Name),
+                Strings.T("detect.encoded.partial.detail", Excerpt(script)), "T1059.001")];
     }
 
     private static string Excerpt(string script)
@@ -458,6 +466,13 @@ public static class BehaviorEngine
         ["detect.encoded.decoded"] = (
             "{0} — الأمر بعد فك الترميز: {1}",
             "{0} — decoded command: {1}"),
+        ["detect.encoded.partial.title"] = (
+            "أمر PowerShell مرمز قرئ جزئيا: {0}",
+            "Encoded PowerShell command, read in part: {0}"),
+        ["detect.encoded.partial.detail"] = (
+            "وصلنا سطر الأوامر مقطوعا من النظام، فقرأنا بدايته فقط ولا شيء مريب فيها: {0}",
+            "Windows delivered the command line truncated, so only its beginning was read, and there is nothing suspicious in it: {0}"),
+
         ["detect.encoded.ordinary.title"] = ("أمر PowerShell مرمز: {0}", "Encoded PowerShell command: {0}"),
         ["detect.encoded.ordinary.detail"] = (
             "فك الترميز ولا يحتوي سلوكا مريبا: {0}",

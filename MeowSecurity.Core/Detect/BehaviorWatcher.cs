@@ -77,6 +77,13 @@ public sealed class BehaviorWatcher
         {
             var fresh = new List<SecurityEvent>();
 
+            // Called on the one-second UI tick, but nothing it looks at moves at that speed: a
+            // pipe stays open, and an account stays created. Enumerating every account and
+            // translating every SID once a second would cost more than the whole rest of the
+            // monitor for no earlier answer.
+            if (DateTime.UtcNow - _lastMachinePass < MachineInterval) return fresh;
+            _lastMachinePass = DateTime.UtcNow;
+
             foreach (var pipe in Native.NamedPipes.FindSuspect())
             {
                 if (!_machineSeen.Add($"pipe:{pipe.Name}")) continue;
@@ -97,11 +104,35 @@ public sealed class BehaviorWatcher
                 fresh.Add(ev);
             }
 
+            foreach (var d in Accounts.AccountRules.Evaluate(
+                         Accounts.AccountScanner.Accounts(),
+                         Accounts.AccountScanner.Sessions()))
+            {
+                if (!_machineSeen.Add($"{d.Rule}:{d.Title}")) continue;
+
+                var ev = new SecurityEvent
+                {
+                    Severity = d.Severity,
+                    Score = d.Score,
+                    Pid = 0,
+                    Process = d.Title,
+                    Rule = d.Rule,
+                    Title = d.Title,
+                    Detail = d.Detail,
+                    Technique = d.Technique,
+                    AllRules = [d.Rule],
+                };
+                _store.Append(ev);
+                fresh.Add(ev);
+            }
+
             return fresh;
         }
     }
 
     private readonly HashSet<string> _machineSeen = [];
+    private DateTime _lastMachinePass = DateTime.MinValue;
+    private static readonly TimeSpan MachineInterval = TimeSpan.FromSeconds(30);
 
     private List<SecurityEvent> InspectCore(IReadOnlyList<LiveProcess> rows)
     {

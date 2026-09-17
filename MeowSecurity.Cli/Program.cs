@@ -224,6 +224,43 @@ if (args.Contains("--pipes"))
     return;
 }
 
+// Who can sign in to this machine, and who is signed in now.
+if (args.Contains("--accounts"))
+{
+    var accounts = MeowSecurity.Core.Accounts.AccountScanner.Accounts();
+    var sessions = MeowSecurity.Core.Accounts.AccountScanner.Sessions();
+
+    Console.WriteLine($"Local accounts — {accounts.Count}");
+    Console.WriteLine(new string('-', 78));
+    foreach (var a in accounts.OrderByDescending(a => a.IsAdministrator).ThenBy(a => a.Name))
+    {
+        var marks = new List<string>();
+        if (a.IsAdministrator) marks.Add("ADMIN");
+        if (!a.IsEnabled) marks.Add("disabled");
+        if (a.IsBuiltIn) marks.Add("built-in");
+        if (a.PasswordNeverExpires) marks.Add("password never expires");
+
+        string seen = a.LastLogon is null ? "never signed in" : $"last {a.LastLogon:yyyy-MM-dd HH:mm}";
+        Console.WriteLine($"  {a.Name,-24}  {seen,-26}  {string.Join(", ", marks)}");
+    }
+
+    Console.WriteLine($"\nSessions — {sessions.Count}");
+    Console.WriteLine(new string('-', 78));
+    foreach (var s in sessions.OrderBy(s => s.SessionId))
+        Console.WriteLine(
+            $"  {s.SessionId,3}  {s.StationName,-16}  {s.State,-13}  " +
+            $"{(s.User.Length == 0 ? "(nobody)" : s.User)}" +
+            (s.ClientAddress is null ? "" : $"   from {s.ClientAddress}"));
+
+    var findings = MeowSecurity.Core.Accounts.AccountRules.Evaluate(accounts, sessions);
+    Console.WriteLine($"\nFindings — {findings.Count}");
+    Console.WriteLine(new string('-', 78));
+    foreach (var f in findings)
+        Console.WriteLine($"  [{f.Severity,-8}] {f.Title}\n      {f.Detail}  [{f.Technique}]");
+    if (findings.Count == 0) Console.WriteLine("  (none)");
+    return;
+}
+
 if (args.Contains("--events"))
 {
     var store = new EventStore();

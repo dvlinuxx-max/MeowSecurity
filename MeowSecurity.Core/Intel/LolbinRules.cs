@@ -125,8 +125,26 @@ public static class LolbinRules
     ///
     /// PowerShell encodes as UTF-16LE base64.
     /// </summary>
-    public static string? DecodeEncodedCommand(string? commandLine)
+    public static string? DecodeEncodedCommand(string? commandLine) =>
+        DecodeEncodedCommand(commandLine, out _);
+
+    /// <summary>
+    /// Decodes a <c>-EncodedCommand</c> blob, and says whether it got all of it.
+    ///
+    /// The kernel's process-start event truncates long command lines, so a blob that arrives
+    /// through the live capture is often cut mid-way and will not decode as valid Base64. That
+    /// is our limitation, not the attacker's, and reporting it as "something is hidden here"
+    /// puts a High alert on every long encoded command on the machine — including the ordinary
+    /// tooling that encodes to escape quoting rules.
+    ///
+    /// So a cut blob is trimmed back to the last whole Base64 group and decoded anyway. What
+    /// comes out is the beginning of the real script, which is worth judging on its own terms;
+    /// <paramref name="complete"/> is false so the caller can be honest that it read a prefix
+    /// rather than the whole thing.
+    /// </summary>
+    public static string? DecodeEncodedCommand(string? commandLine, out bool complete)
     {
+        complete = true;
         if (string.IsNullOrWhiteSpace(commandLine)) return null;
 
         var parts = commandLine.Split(' ', StringSplitOptions.RemoveEmptyEntries);
@@ -138,17 +156,40 @@ public static class LolbinRules
 
             var blob = parts[i + 1].Trim('"');
             if (blob.Length < 20 || !IsBase64(blob.ToLowerInvariant())) continue;
-            try
+
+            string? decoded = Decode(blob);
+            if (decoded is not null) return decoded;
+
+            // Not valid Base64 as it stands — almost always because the command line was cut
+            // short before it reached us. Read as much as forms whole groups.
+            int whole = blob.Length - (blob.Length % 4);
+            if (whole >= 20 && Decode(blob[..whole]) is { } partial)
             {
-                var bytes = Convert.FromBase64String(blob);
-                var text = System.Text.Encoding.Unicode.GetString(bytes);
-                // A wrong guess at the encoding shows up as interleaved NULs.
-                if (text.Contains('\0')) text = System.Text.Encoding.UTF8.GetString(bytes);
-                return text.Trim();
+                complete = false;
+                return partial;
             }
-            catch (FormatException) { return null; }
+            return null;
         }
         return null;
+    }
+
+    private static string? Decode(string blob)
+    {
+        try
+        {
+            var bytes = Convert.FromBase64String(blob);
+            var text = System.Text.Encoding.Unicode.GetString(bytes);
+            // A wrong guess at the encoding shows up as interleaved NULs.
+            if (text.Contains('\0')) text = System.Text.Encoding.UTF8.GetString(bytes);
+            text = text.Trim();
+
+            // Valid Base64 is not the same as a script. A blob that decodes to control
+            // characters decoded into nothing readable, and calling that "nothing suspicious
+            // here" would be the opposite of the truth — we could not read it at all, which is
+            // exactly what the caller needs to be told.
+            return text.Any(c => !char.IsControl(c)) ? text : null;
+        }
+        catch (FormatException) { return null; }
     }
 
     private static bool IsBase64(string s)

@@ -57,6 +57,12 @@ launched a process, from where, and with what arguments.
   disabled or removed. Disabling writes the same flags Task Manager uses, so the
   machine agrees with itself and every change can be undone. WMI subscriptions are
   reported, not removed.
+- **Accounts and sessions.** Every local account, which of them are
+  administrators, which can still sign in, and who is signed in right now — with
+  where a remote session is coming from. An account is the most durable foothold
+  there is: it survives killing every process, clearing every startup entry and
+  deleting the malware itself. Nothing here is ever changed automatically, because
+  a wrong automated action on an account locks the owner out of their own machine.
 - **Known control channels.** Named pipes matching the defaults that
   post-exploitation frameworks ship with — recognised by name alone. The pipes are
   never connected to: doing so would take a single-instance server away from a
@@ -99,6 +105,7 @@ still runs and tells you which parts are limited.
 | `--threads` | Threads starting outside any mapped image. Prints nothing on a clean machine. |
 | `--tokens` | Integrity level, debug privilege, impersonation and untrusted loaded libraries. |
 | `--pipes [--all]` | Named pipes matching known tooling; `--all` lists every pipe name. |
+| `--accounts` | Local accounts, who is an administrator, and who is signed in. |
 | `--events [--all]` | The recorded security events. |
 | `--autoruns` | Everything that starts by itself, with its verdict. |
 | `--autorun-on/off <name>` | Enable or disable one startup entry. |
