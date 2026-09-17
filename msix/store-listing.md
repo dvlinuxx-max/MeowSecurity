@@ -138,10 +138,60 @@ At least one is required, 1366×768 or larger. The pages worth showing, in order
 4. **Autoruns** — the five kinds of persistence, with the controls.
 5. **Accounts** — who can sign in and who is signed in.
 
-Capture them in **English** for the English listing and **Arabic** for the Arabic one; the
-interface follows the system language, so switch it in Settings between captures.
+Capture them in **English** for the English listing and **Arabic** for the Arabic one. The
+language can be switched without clicking anything: set `"Language"` in
+`%LOCALAPPDATA%\MeowSecurity\settings.json` to `ar` or `en` and restart the app.
+
+### How to capture them
+
+Grabbing the screen does not work — whatever is in front gets captured, and anything used to
+ask for the capture is in front by definition. `PrintWindow` with `PW_RENDERFULLCONTENT` (`2`)
+photographs a named window's own pixels whether or not it is on top, and it works for WPF:
+
+```powershell
+[DllImport("user32.dll")] static extern bool PrintWindow(IntPtr h, IntPtr hdc, uint flags);
+# ... PrintWindow(hwnd, hdc, 2) into a Bitmap the size of GetWindowRect
+```
+
+Two things to set before capturing:
+
+- **Size the window past 1366×768**, the Store's minimum. The app opens smaller than that.
+- **Wait a minute after launch.** Signatures and publishers are filled in by a background pass,
+  and a screenshot taken too early has two empty columns and looks unfinished.
+
+### One caveat about the test build
+
+A package registered from a loose folder is unsigned, so the product correctly reports its own
+two executables as "unsigned, outside the system folders" on the Overview page. The Store build
+is signed by Microsoft and will not do this — but a screenshot of it looks like a defect, so
+capture Processes, Network, Startup or Events instead, and leave Overview alone.
 
 One caution: these are screenshots of a real machine. Before uploading any of them, look at
 what is actually in the process list and the paths — a personal folder name, a document title
 in a window caption, or a colleague's machine name in a session row are all things that are
 easy to publish by accident and impossible to unpublish.
+
+That is not hypothetical. The Startup screenshot in the first submission had
+`C:\Users\<name>\...` in three rows of its Path column, because that is simply what the column
+shows. It was painted over before upload. Check every shot of a page that displays paths.
+
+## The field that decides this
+
+The `allowElevation` justification does not go in the listing. It goes in **Submission
+Options**, under "Restricted capabilities", where Partner Center asks directly: *"Why do you
+need the allowElevation capability, and how will it be used in your product?"*
+
+That field holds **500 characters**. It cannot carry the argument, so it carries the shape of
+one and a link to the rest:
+
+> Offline host intrusion detector. Three detections need privileges Windows withholds from a
+> packaged app: a kernel ETW session, protected-process image paths, machine-wide autorun
+> control. Rather than elevate the app, these run in one helper started on demand behind the
+> UAC prompt. It accepts five fixed verbs, runs no path it is given, admits only our own image
+> over a user-only pipe, and exits with the app. Full case:
+> https://github.com/dvlinuxx-max/MeowSecurity/blob/main/STORE-JUSTIFICATION.md
+
+The unabridged version goes in **Supplemental info → Additional Testing Information → Notes for
+Certification**, which has no such limit and is where the certification team actually reads.
+Put it in both: the short field is what the reviewer sees first, and the long one is what
+answers them.
