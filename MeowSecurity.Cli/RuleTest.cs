@@ -219,6 +219,17 @@ internal static class RuleTest
               debugPriv: true),
             Expect.Silent),
 
+        // Caught by running the product, not by writing a test: Microsoft Defender lives in
+        // ProgramData — which is on the writable-folder list, correctly — and holds the debug
+        // privilege, because opening any process is what an antivirus does. Alarming about the
+        // antivirus is the worst false positive there is: it is the alert a user is most likely
+        // to act on, and acting on it leaves them less safe.
+        new("Microsoft Defender holding the debug privilege from ProgramData",
+            P("MsMpEng.exe", "services.exe",
+              path: @"C:\ProgramData\Microsoft\Windows Defender\Platform\4.18\MsMpEng.exe",
+              debugPriv: true, impersonating: true),
+            Expect.Silent),
+
         // An installer the user just approved is elevated and unsigned, which is ordinary the
         // moment it lives somewhere an installer normally lives.
         new("A signed installer running elevated from Program Files",

@@ -162,16 +162,24 @@ public static class BehaviorEngine
 
         // ---- the authority a process is actually running with ----
 
-        // SeDebugPrivilege *enabled* is the master key to every process on the machine. Almost
-        // nothing outside a debugger or a backup agent switches it on, and a program running
-        // from a folder anything can write to has no business holding it at all.
-        if (ctx.DebugPrivilege && fromUserLand)
+        // SeDebugPrivilege *enabled* is the master key to every process on the machine.
+        //
+        // "Holds it, and lives somewhere anything could have written it" was not enough. Run
+        // against a real machine, that fired on Microsoft Defender — MsMpEng.exe and
+        // MpDefenderCoreService.exe both run from ProgramData and both legitimately hold the
+        // privilege, because opening any process is what an antivirus is for. Alarming about
+        // the antivirus is the worst possible false positive: it is the one alert a user is
+        // most likely to act on, and acting on it makes them less safe. A valid signature is
+        // what separates the security software from something imitating its habits.
+        if (ctx.DebugPrivilege && fromUserLand && ctx.Signature != SignatureState.SignedValid)
             found.Add(new Detection("privilege.debug-enabled", Severity.High, 50,
                 Strings.T("detect.debugpriv.title", ctx.Name),
                 Strings.T("detect.debugpriv.detail"), "T1134.001"));
 
-        // Running under somebody else's token is the point of stealing one.
-        if (ctx.Impersonating && fromUserLand)
+        // Running under somebody else's token is the point of stealing one. Same qualification
+        // as above, and for the same reason: signed security and backup software impersonates
+        // callers as a matter of course.
+        if (ctx.Impersonating && fromUserLand && ctx.Signature != SignatureState.SignedValid)
             found.Add(new Detection("privilege.impersonation", Severity.Medium, 30,
                 Strings.T("detect.impersonate.title", ctx.Name),
                 Strings.T("detect.impersonate.detail"), "T1134"));
