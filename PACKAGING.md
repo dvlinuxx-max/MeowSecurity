@@ -44,8 +44,19 @@ shipped quietly.
 
 | | Store (MSIX) | Direct download |
 |---|---|---|
-| Signing | Microsoft signs the package | SignPath Foundation certificate |
+| Signing | Microsoft signs the package | unsigned for now — see below |
 | Elevation | via the engine, pending `allowElevation` | via the engine, no approval needed |
 | Updates | automatic | GitHub releases |
 
 The same source produces both; only packaging and signing differ.
+
+## Signing the direct download
+
+There is no code-signing certificate for the GitHub build yet. An unsigned executable
+means SmartScreen warns on first run until the download builds enough reputation, and
+the publisher line reads "Unknown". Nothing about the product's behaviour changes.
+
+Getting one means either paying for a commercial certificate, or qualifying for a free
+open-source programme — and those ask for public traction (stars, forks, contributors,
+outside write-ups) that this project has yet to build. The Store path is unaffected:
+Microsoft signs the MSIX itself.

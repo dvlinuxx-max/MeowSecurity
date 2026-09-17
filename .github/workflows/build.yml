@@ -2,8 +2,8 @@ name: build
 
 # A reproducible build anyone can inspect: the same steps run here that run on a
 # developer's machine, and the artefacts published from a tag are the ones that were
-# built from that tag's source. This is also the pipeline code signing hooks into,
-# which is why it produces the binaries rather than only checking that they compile.
+# built from that tag's source. It produces the binaries rather than only checking that
+# they compile, so a release is the output of a run anyone can read start to finish.
 
 on:
   push:
