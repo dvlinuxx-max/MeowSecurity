@@ -35,12 +35,33 @@ internal static class RuleTest
     private static ProcessContext P(
         string name, string? parent = null, string? path = null, string? cmd = null,
         SignatureState sig = SignatureState.SignedValid, bool hidden = false,
-        bool implanted = false, int remote = 0) =>
-        new(1234, name, 900, parent, path ?? Sys + name, cmd, sig, hidden, implanted, remote, 1);
+        bool implanted = false, int remote = 0,
+        bool lsass = false, int injTargets = 0, int foreignThreads = 0, bool foreignRwx = false) =>
+        new(1234, name, 900, parent, path ?? Sys + name, cmd, sig, hidden, implanted, remote, 1,
+            lsass, injTargets, foreignThreads, foreignRwx);
 
     private static readonly Case[] Cases =
     {
         // ---------- must raise an alert ----------
+
+        // The handle is the act. It does not matter what the tool is called or who signed it,
+        // which is exactly why this case uses a signed binary with an innocent name.
+        new("Reading LSASS memory (credential dumping)",
+            P("svchost.exe", "services.exe", lsass: true),
+            Expect.Alert, "credentials.lsass-read"),
+
+        new("Thread running from writable, file-less memory",
+            P("notepad.exe", "explorer.exe", foreignThreads: 1, foreignRwx: true),
+            Expect.Alert, "memory.foreign-thread"),
+
+        new("Thread running from file-less memory",
+            P("notepad.exe", "explorer.exe", foreignThreads: 2),
+            Expect.Alert, "memory.foreign-thread"),
+
+        new("Injection handles held on several processes at once",
+            P("updater.exe", "explorer.exe", path: Temp + "updater.exe",
+              sig: SignatureState.Unsigned, injTargets: 4),
+            Expect.Alert, "inject.handles"),
         new("Word spawning PowerShell (macro)",
             P("powershell.exe", "winword.exe", cmd: Sys + "powershell.exe -w hidden"),
             Expect.Alert, "lolbin.office-parent"),
@@ -156,6 +177,18 @@ internal static class RuleTest
 
         new("msiexec installing a normal package",
             P("msiexec.exe", "explorer.exe", cmd: "msiexec /i setup.msi /qn"),
+            Expect.Silent),
+
+        // A debugger attached to the process it is debugging is a developer's whole working day.
+        new("A debugger attached to one process",
+            P("devenv.exe", "explorer.exe", path: @"C:\Program Files\VS\devenv.exe", injTargets: 1),
+            Expect.Silent),
+
+        // Measured on a real, clean desktop: conhost holds full access to every process
+        // attached to its console, none of them its children. An earlier version of the
+        // injection rule fired on it, which would have meant an alert on an idle machine.
+        new("conhost holding full access to its console's processes",
+            P("conhost.exe", "svchost.exe", injTargets: 4),
             Expect.Silent),
     };
 

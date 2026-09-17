@@ -48,6 +48,15 @@ public sealed class LiveProcess
     public long NetOutBytesPerSec { get; set; }
     public bool HasImplantedPe { get; set; }
     public bool IsHidden { get; set; }
+
+    // From the deep pass: what this process holds open, and what is running inside it. These
+    // change over the life of a process, so they are refreshed on their own slow cadence
+    // rather than priced once and cached like the signature.
+    public bool ReadsCredentialStore { get; set; }
+    public int InjectionTargets { get; set; }
+    public int ForeignThreads { get; set; }
+    public bool ForeignThreadWritable { get; set; }
+
     public IReadOnlyList<string> Reasons { get; set; } = [];
 }
 

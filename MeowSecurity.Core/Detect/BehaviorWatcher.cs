@@ -79,7 +79,9 @@ public sealed class BehaviorWatcher
             var result = BehaviorEngine.Evaluate(new ProcessContext(
                 row.Pid, row.Name, row.ParentPid, parentName,
                 row.ImagePath, row.CommandLine, row.Signature,
-                row.IsHidden, row.HasImplantedPe, row.RemoteConnections, row.SessionId));
+                row.IsHidden, row.HasImplantedPe, row.RemoteConnections, row.SessionId,
+                row.ReadsCredentialStore, row.InjectionTargets,
+                row.ForeignThreads, row.ForeignThreadWritable));
 
             if (result.IsEmpty) continue;
 

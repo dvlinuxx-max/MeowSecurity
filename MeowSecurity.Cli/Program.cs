@@ -62,6 +62,95 @@ if (args.Contains("--watch"))
     return;
 }
 
+// Who is holding whom open. The handle rules cannot be proven by the rule table — that only
+// checks the judgement, not the reading — so this is how the reading itself gets verified,
+// on a real machine, against processes whose behaviour is already known.
+if (args.Contains("--handles"))
+{
+    var clock = System.Diagnostics.Stopwatch.StartNew();
+    var handles = MeowSecurity.Core.Native.HandleTable.ScanDangerous(out int unreadable);
+    clock.Stop();
+
+    var names = new Dictionary<int, string>();
+    var parents = new Dictionary<int, int>();
+    foreach (var p in MeowSecurity.Core.Native.SystemProcessSnapshot.Enumerate())
+    {
+        names[p.Pid] = p.Name;
+        parents[p.Pid] = p.ParentPid;
+    }
+    string Name(int pid) => names.TryGetValue(pid, out var n) ? n : "(exited)";
+
+    // The handle a parent gets from CreateProcess looks identical to an injection handle, so
+    // the listing says which is which rather than leaving the reader to guess.
+    bool Family(int holder, int target) =>
+        (parents.TryGetValue(target, out int tp) && tp == holder) ||
+        (parents.TryGetValue(holder, out int hp) && hp == target);
+
+    int lsass = names.FirstOrDefault(kv =>
+        kv.Value.Equals("lsass.exe", StringComparison.OrdinalIgnoreCase)).Key;
+
+    Console.WriteLine($"Cross-process handles — {handles.Count} found in {clock.ElapsedMilliseconds} ms");
+    if (unreadable > 0)
+        Console.WriteLine($"  {unreadable} holder(s) could not be opened — run elevated to see those too.");
+    Console.WriteLine(new string('-', 78));
+
+    int family = handles.Count(h => Family(h.HolderPid, h.TargetPid));
+    Console.WriteLine($"  {family} of them are parent/child — the handle CreateProcess hands out, and not a finding.\n");
+
+    foreach (var h in handles
+        .OrderByDescending(h => h.TargetPid == lsass)
+        .ThenBy(h => Family(h.HolderPid, h.TargetPid))
+        .ThenBy(h => h.HolderPid))
+    {
+        var marks = new List<string>();
+        if (h.CanReadMemory) marks.Add("read-memory");
+        if (h.CanInject) marks.Add("inject");
+
+        string flag =
+            h.TargetPid == lsass && h.CanReadMemory ? "  <== CREDENTIAL STORE" :
+            Family(h.HolderPid, h.TargetPid) ? "  (parent/child)" : "";
+
+        Console.WriteLine(
+            $"  {Name(h.HolderPid),-28} ({h.HolderPid,6}) -> {Name(h.TargetPid),-24} ({h.TargetPid,6})  " +
+            $"0x{h.GrantedAccess:X6}  {string.Join('+', marks)}{flag}");
+    }
+    return;
+}
+
+// The companion to --handles: what is running inside every process, and whether any of it
+// came from somewhere other than a file. On a clean machine this should print almost nothing,
+// and that is the point of being able to run it.
+if (args.Contains("--threads"))
+{
+    var clock = System.Diagnostics.Stopwatch.StartNew();
+    var all = MeowSecurity.Core.Native.SystemProcessSnapshot.Enumerate();
+    int examined = 0, blind = 0;
+    var hits = new List<(string Name, int Pid, MeowSecurity.Core.Native.ForeignThread T)>();
+
+    foreach (var p in all.Where(p => p.Pid > 4 && p.Pid != Environment.ProcessId))
+    {
+        var foreign = MeowSecurity.Core.Native.ThreadInspector.FindForeignThreads(p.Pid);
+        if (foreign.Count == 0) { examined++; continue; }
+        examined++;
+        foreach (var t in foreign) hits.Add((p.Name, p.Pid, t));
+    }
+    clock.Stop();
+
+    Console.WriteLine($"Threads starting outside any image — {all.Count} processes in {clock.ElapsedMilliseconds} ms");
+    Console.WriteLine($"  {hits.Count} finding(s) across {hits.Select(h => h.Pid).Distinct().Count()} process(es).");
+    Console.WriteLine(new string('-', 78));
+
+    foreach (var g in hits.GroupBy(h => (h.Name, h.Pid)).OrderByDescending(g => g.Count()))
+        Console.WriteLine(
+            $"  {g.Key.Name,-28} ({g.Key.Pid,6})  {g.Count()} thread(s)" +
+            (g.Any(h => h.T.Writable) ? "  <== writable+executable memory" : "") +
+            $"   e.g. 0x{g.First().T.StartAddress:X}");
+
+    if (hits.Count == 0) Console.WriteLine("  (nothing — the expected result on a clean machine)");
+    _ = blind;
+    return;
+}
+
 if (args.Contains("--events"))
 {
     var store = new EventStore();

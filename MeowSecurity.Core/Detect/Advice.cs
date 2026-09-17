@@ -28,6 +28,7 @@ public static class Guidance
         "stealth.hidden", "memory.implanted-pe", "masquerade.system-name",
         "masquerade.double-extension", "lolbin.office-parent", "lolbin.encoded-payload",
         "lolbin.bare-rundll32", "sign.invalid",
+        "credentials.lsass-read", "memory.foreign-thread",
     ];
 
     static Guidance() => Strings.Register(Text);
@@ -47,6 +48,27 @@ public static class Guidance
         ["advice.stealth.hidden.do"] = (
             "هذا سلوك جذور خفية ولا يفعله برنامج عادي. افصل الجهاز عن الإنترنت، وافحصه ببرنامج حماية موثوق، ولا تدخل كلمات مرور قبل تنظيفه.",
             "This is rootkit behaviour and no ordinary program does it. Disconnect from the internet, scan with a trusted anti-malware tool, and do not type any passwords until the machine is clean."),
+
+        ["advice.credentials.lsass-read.means"] = (
+            "برنامج يقرأ الذاكرة التي يحفظ فيها ويندوز كلمات مرور جلستك.",
+            "A program is reading the memory where Windows keeps your session's passwords."),
+        ["advice.credentials.lsass-read.do"] = (
+            "أدوات الحماية وبعض أدوات المطورين تفعل هذا لأسباب مشروعة، فاقرأ اسم البرنامج أولا. إذا لم تعرفه: أنه العملية، ثم غير كلمات مرورك من جهاز آخر — لا من هذا الجهاز.",
+            "Security software and some developer tools do this for legitimate reasons, so read the program's name first. If you do not recognise it: end the process, then change your passwords from a different device — not this one."),
+
+        ["advice.inject.handles.means"] = (
+            "برنامج يمسك صلاحية الكتابة داخل برامج أخرى وتشغيل كود فيها.",
+            "A program holds the right to write inside other programs and run code there."),
+        ["advice.inject.handles.do"] = (
+            "المصححات وأدوات مكافحة الغش وبعض برامج الحماية تفعل هذا بشكل طبيعي. إذا كان البرنامج غير معروف أو يمسك عدة عمليات دفعة واحدة، أنهه وافحص الجهاز.",
+            "Debuggers, anti-cheat and some security software do this normally. If the program is unfamiliar, or holds several processes at once, end it and scan the machine."),
+
+        ["advice.memory.foreign-thread.means"] = (
+            "كود يعمل داخل هذه العملية بلا ملف على القرص يقف خلفه.",
+            "Code is running inside this process with no file on disk behind it."),
+        ["advice.memory.foreign-thread.do"] = (
+            "هذا هو شكل الكود المحقون. لكن الالعاب المحمية بانظمة مكافحة الغش، وبعض البرامج المضغوطة، تفك تشفير نفسها في الذاكرة بالطريقة نفسها — فاذا كانت العملية لعبة تعرفها فهي غالبا سليمة. اذا لم تعرف البرنامج: انهه وافحص الجهاز.",
+            "This is what injected code looks like. But games with anti-cheat protection, and some packed programs, unpack themselves in memory the same way — so if the process is a game you recognise it is probably fine. If you do not recognise the program: end it and scan the machine."),
 
         ["advice.memory.implanted-pe.means"] = (
             "برنامج يعمل من داخل ذاكرة عملية أخرى بدل أن يعمل من ملف على القرص.",

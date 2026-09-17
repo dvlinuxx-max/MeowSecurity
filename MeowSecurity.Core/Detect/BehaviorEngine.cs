@@ -4,7 +4,14 @@ using MeowSecurity.Core.Processes;
 
 namespace MeowSecurity.Core.Detect;
 
-/// <summary>Everything the engine needs to judge one process, gathered by the caller.</summary>
+/// <summary>
+/// Everything the engine needs to judge one process, gathered by the caller.
+///
+/// The fields after <c>SessionId</c> come from the deeper, slower inspection — the handle
+/// table and the thread list — and default to "nothing found" so that a caller which cannot
+/// afford them, or is not privileged enough to read them, still gets every other rule. An
+/// absent signal must never read as an innocent one, so each default is the quiet value.
+/// </summary>
 public sealed record ProcessContext(
     int Pid,
     string Name,
@@ -16,7 +23,11 @@ public sealed record ProcessContext(
     bool IsHidden,
     bool HasImplantedPe,
     int RemoteConnections,
-    int SessionId);
+    int SessionId,
+    bool ReadsCredentialStore = false,
+    int InjectionTargets = 0,
+    int ForeignThreads = 0,
+    bool ForeignThreadWritable = false);
 
 /// <summary>The engine's opinion of one process: the findings plus their combined weight.</summary>
 public sealed record BehaviorResult(
@@ -98,6 +109,43 @@ public static class BehaviorEngine
             found.Add(new Detection("sign.invalid", Severity.High, 45,
                 Strings.T("detect.badsign.title"),
                 Strings.T("detect.badsign.detail"), "T1553"));
+
+        // ---- what a process is holding open, and what is running inside it ----
+
+        // Reading LSASS's memory is how every credential dumper works, from Mimikatz to a
+        // hundred lines written this morning. Unlike a hash or a command line, the handle is
+        // the act itself, so it does not matter what the tool is called or who signed it.
+        if (ctx.ReadsCredentialStore)
+            found.Add(new Detection("credentials.lsass-read", Severity.Critical, 85,
+                Strings.T("detect.lsass.title", ctx.Name),
+                Strings.T("detect.lsass.detail"), "T1003.001"));
+
+        // Write access plus the ability to start a thread there is the injection toolkit.
+        //
+        // But Windows brokers handles like these constantly, and not only between a parent and
+        // its child — the caller has already removed those. On an idle desktop conhost.exe
+        // alone holds full access to every process attached to its console. So the rule asks
+        // for the combination rather than the single tell: injection handles held by something
+        // that is *not* a validly signed binary living where the system keeps its own. A signed
+        // tool in Program Files doing this is a debugger; an unsigned one in Temp is not.
+        bool trustedHost = ctx.Signature == SignatureState.SignedValid && !fromUserLand;
+        if (ctx.InjectionTargets > 0 && !trustedHost)
+            found.Add(new Detection("inject.handles",
+                ctx.InjectionTargets >= 3 ? Severity.High : Severity.Medium,
+                ctx.InjectionTargets >= 3 ? 45 : 25,
+                Strings.T("detect.injhandle.title", ctx.Name),
+                Strings.T("detect.injhandle.detail", ctx.InjectionTargets), "T1055"));
+
+        // A thread that began outside every mapped image is code running from memory that came
+        // from nowhere on disk. In writable memory too, it is shellcode by any useful definition.
+        if (ctx.ForeignThreads > 0)
+            found.Add(new Detection("memory.foreign-thread",
+                ctx.ForeignThreadWritable ? Severity.Critical : Severity.High,
+                ctx.ForeignThreadWritable ? 70 : 45,
+                Strings.T("detect.foreignthread.title", ctx.Name),
+                ctx.ForeignThreadWritable
+                    ? Strings.T("detect.foreignthread.rwx", ctx.ForeignThreads)
+                    : Strings.T("detect.foreignthread.detail", ctx.ForeignThreads), "T1055"));
 
         // ---- masquerading: the right name in the wrong place ----
 
@@ -266,6 +314,26 @@ public static class BehaviorEngine
         ["detect.implanted.detail"] = (
             "وحدة PE تعمل من ذاكرة غير مدعومة بملف على القرص.",
             "A PE module is running from memory with no file behind it."),
+
+        ["detect.lsass.title"] = (
+            "قراءة ذاكرة مخزن كلمات المرور: {0}",
+            "Reading the credential store's memory: {0}"),
+        ["detect.lsass.detail"] = (
+            "العملية تمسك مقبضا يخولها قراءة ذاكرة lsass.exe — حيث تحفظ كلمات مرور الجلسة. هذه هي طريقة سرقة بيانات الدخول.",
+            "Holds a handle that lets it read the memory of lsass.exe, where the session's passwords live. This is how credentials are stolen."),
+
+        ["detect.injhandle.title"] = ("مقابض حقن على عمليات اخرى: {0}", "Injection handles on other processes: {0}"),
+        ["detect.injhandle.detail"] = (
+            "تمسك مقابض كتابة او انشاء خيوط على {0} عملية اخرى.",
+            "Holds write or thread-creation handles on {0} other processes."),
+
+        ["detect.foreignthread.title"] = ("خيط يعمل من خارج اي ملف: {0}", "A thread running from no file: {0}"),
+        ["detect.foreignthread.detail"] = (
+            "{0} خيط بدايته في ذاكرة غير مدعومة بملف على القرص.",
+            "{0} thread(s) starting in memory with no file behind it."),
+        ["detect.foreignthread.rwx"] = (
+            "{0} خيط بدايته في ذاكرة قابلة للكتابة والتنفيذ معا — هذا شكل الشفرة المحقونة.",
+            "{0} thread(s) starting in memory that is both writable and executable — the shape of injected shellcode."),
 
         ["detect.badsign.title"] = ("توقيع رقمي غير صالح", "Invalid digital signature"),
         ["detect.badsign.detail"] = (

@@ -22,10 +22,28 @@ public sealed class LiveEnricher
         SignatureState Signature, Verdict Verdict, bool HasImplantedPe,
         IReadOnlyList<string> Reasons);
 
+    /// <summary>What a process holds open and what runs inside it, as of the last deep pass.</summary>
+    private readonly record struct DeepFacts(
+        bool ReadsCredentialStore, int InjectionTargets, int ForeignThreads, bool ForeignThreadWritable);
+
     private readonly ConcurrentDictionary<int, Enrichment> _cache = new();
     private readonly ConcurrentDictionary<int, byte> _inFlight = new();
     private readonly InjectionScanner _injection = new();
     private readonly NetworkScanner _network = new();
+
+    private volatile ConcurrentDictionary<int, DeepFacts> _deep = new();
+    private DateTime _lastDeepPass = DateTime.MinValue;
+    private int _deepRunning;
+
+    /// <summary>
+    /// How often the handle table and thread lists are re-read.
+    ///
+    /// Far slower than the UI tick, and deliberately so: one pass walks every handle on the
+    /// machine and every thread in every process the user owns. At this cadence the cost
+    /// disappears into the background, and none of what it looks for — a handle held open, a
+    /// thread already running — is the kind of thing that comes and goes within a second.
+    /// </summary>
+    private static readonly TimeSpan DeepInterval = TimeSpan.FromSeconds(20);
 
     private static readonly string WinDir =
         Environment.GetFolderPath(Environment.SpecialFolder.Windows).ToLowerInvariant();
@@ -56,6 +74,14 @@ public sealed class LiveEnricher
                 row.Verdict = e.Verdict;
                 row.HasImplantedPe = e.HasImplantedPe;
                 row.Reasons = e.Reasons;
+            }
+
+            if (_deep.TryGetValue(row.Pid, out var d))
+            {
+                row.ReadsCredentialStore = d.ReadsCredentialStore;
+                row.InjectionTargets = d.InjectionTargets;
+                row.ForeignThreads = d.ForeignThreads;
+                row.ForeignThreadWritable = d.ForeignThreadWritable;
             }
 
             if (connsByPid.TryGetValue(row.Pid, out var conns))
@@ -102,6 +128,81 @@ public sealed class LiveEnricher
                     finally { _inFlight.TryRemove(item.Pid, out _); }
                 });
         });
+    }
+
+    /// <summary>
+    /// Re-reads the handle table and the thread lists, off the UI thread and at its own pace.
+    ///
+    /// Returns immediately if a pass is already running or the last one is still recent — the
+    /// caller may invite this every tick without thinking about it. The result is published as
+    /// a whole new map rather than mutated in place, so a reader on the UI thread always sees
+    /// one consistent pass and never a half-updated one.
+    /// </summary>
+    public void DeepScanIfDue(IReadOnlyList<LiveProcess> rows)
+    {
+        if (DateTime.UtcNow - _lastDeepPass < DeepInterval) return;
+        if (Interlocked.Exchange(ref _deepRunning, 1) == 1) return;
+
+        int lsassPid = rows.FirstOrDefault(r =>
+            r.Name.Equals("lsass.exe", StringComparison.OrdinalIgnoreCase))?.Pid ?? -1;
+        var pids = rows.Where(r => r.Pid > 4 && r.Pid != OwnPid).Select(r => r.Pid).ToList();
+        var parents = rows.ToDictionary(r => r.Pid, r => r.ParentPid);
+
+        Task.Run(() =>
+        {
+            try { _deep = DeepScan(pids, parents, lsassPid); }
+            catch { /* a pass that fails leaves the previous one standing */ }
+            finally
+            {
+                _lastDeepPass = DateTime.UtcNow;
+                Interlocked.Exchange(ref _deepRunning, 0);
+            }
+        });
+    }
+
+    private static ConcurrentDictionary<int, DeepFacts> DeepScan(
+        List<int> pids, Dictionary<int, int> parents, int lsassPid)
+    {
+        var readsLsass = new HashSet<int>();
+        var injectionTargets = new Dictionary<int, HashSet<int>>();
+
+        // Whoever calls CreateProcess is handed a full-access handle to the child and keeps it
+        // for the child's lifetime. Every browser, every shell and every terminal on the
+        // machine therefore holds handles that look exactly like injection, and a rule that
+        // counted them would fire on all of them at once — which is how a monitor gets muted.
+        // A handle between a parent and its child is the ordinary cost of starting a program.
+        bool SameFamily(int holder, int target) =>
+            (parents.TryGetValue(target, out int tp) && tp == holder) ||
+            (parents.TryGetValue(holder, out int hp) && hp == target);
+
+        // One walk of the machine's handles answers both questions asked of it.
+        foreach (var h in Native.HandleTable.ScanDangerous(out _))
+        {
+            if (lsassPid > 0 && h.TargetPid == lsassPid && h.CanReadMemory)
+                readsLsass.Add(h.HolderPid);
+
+            if (h.CanInject && !SameFamily(h.HolderPid, h.TargetPid))
+            {
+                if (!injectionTargets.TryGetValue(h.HolderPid, out var set))
+                    injectionTargets[h.HolderPid] = set = [];
+                set.Add(h.TargetPid);
+            }
+        }
+
+        var facts = new ConcurrentDictionary<int, DeepFacts>();
+        Parallel.ForEach(pids,
+            new ParallelOptions { MaxDegreeOfParallelism = Environment.ProcessorCount },
+            pid =>
+            {
+                var foreign = Native.ThreadInspector.FindForeignThreads(pid);
+                bool lsass = readsLsass.Contains(pid);
+                int targets = injectionTargets.TryGetValue(pid, out var t) ? t.Count : 0;
+
+                if (!lsass && targets == 0 && foreign.Count == 0) return;   // the usual case
+                facts[pid] = new DeepFacts(lsass, targets, foreign.Count, foreign.Any(f => f.Writable));
+            });
+
+        return facts;
     }
 
     private Enrichment Price(int pid, string name, bool hidden, bool scanMemory)

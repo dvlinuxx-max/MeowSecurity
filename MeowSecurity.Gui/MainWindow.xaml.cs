@@ -860,6 +860,7 @@ public partial class MainWindow : Window
             CollectionViewSource.GetDefaultView(_rows)?.Refresh();
 
         _enricher.EnrichMissing(sample, scanMemory: true);
+        _enricher.DeepScanIfDue(sample);
     }
 
     private void UpdateReadouts(SystemPulse pulse)
