@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using MeowSecurity.Core.Detect;
 using MeowSecurity.Core.Processes;
 
@@ -244,6 +245,61 @@ internal static class RuleTest
     };
 
     /// <summary>
+    /// Checks that every string the interface asks for actually exists.
+    ///
+    /// A missing key is returned as itself, deliberately, so that a mistake is visible rather
+    /// than silent. That works — but only if somebody looks. Five keys reached a built product
+    /// this way, and the startup page showed the literal text "status.scanning" to every user
+    /// in both languages until a screenshot caught it. This is the check that would have.
+    ///
+    /// It reads the source rather than the running interface, because the alternative is
+    /// clicking through every page in two languages and hoping.
+    /// </summary>
+    private static (int Checked, List<string> Missing) CheckStrings()
+    {
+        var root = FindRepositoryRoot();
+        if (root is null) return (0, []);
+
+        var used = new HashSet<string>();
+        var defined = new HashSet<string>();
+
+        foreach (var file in Directory.EnumerateFiles(root, "*.cs", SearchOption.AllDirectories))
+        {
+            if (file.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}") ||
+                file.Contains($"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}")) continue;
+
+            string text = File.ReadAllText(file);
+            foreach (Match m in Regex.Matches(text, @"Strings\.T\(""([^""]+)"""))
+                used.Add(m.Groups[1].Value);
+            foreach (Match m in Regex.Matches(text, @"\[""([a-z][a-zA-Z0-9_.\-]+)""\]\s*=\s*\("))
+                defined.Add(m.Groups[1].Value);
+        }
+
+        foreach (var file in Directory.EnumerateFiles(root, "*.xaml", SearchOption.AllDirectories))
+        {
+            if (file.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}")) continue;
+            foreach (Match m in Regex.Matches(File.ReadAllText(file), @"\{loc:T\s+([^\}\s]+)\s*\}"))
+                used.Add(m.Groups[1].Value);
+        }
+
+        return (used.Count, used.Where(k => !defined.Contains(k)).OrderBy(k => k).ToList());
+    }
+
+    /// <summary>Walks up from the running binary until the solution file appears.</summary>
+    private static string? FindRepositoryRoot()
+    {
+        var dir = new DirectoryInfo(AppContext.BaseDirectory);
+        while (dir is not null)
+        {
+            if (dir.EnumerateFiles("*.sln").Any() ||
+                dir.EnumerateDirectories("MeowSecurity.Core").Any())
+                return dir.FullName;
+            dir = dir.Parent;
+        }
+        return null;
+    }
+
+    /// <summary>
     /// Drives the health monitor with a synthetic clock. The measuring is trivial; the part
     /// worth pinning down is the restraint — strain must hold a full minute before it is
     /// mentioned, it must be mentioned only once, and a later episode must be able to speak
@@ -332,6 +388,17 @@ internal static class RuleTest
         Console.WriteLine($"  {pass} passed, {fail} failed");
 
         bool health = RunHealth();
-        return fail == 0 && health;
+
+        var (checkedKeys, missing) = CheckStrings();
+        Console.WriteLine("\nInterface strings\n" + new string('-', 78));
+        if (checkedKeys == 0)
+            Console.WriteLine("  SKIP  source tree not found from here");
+        else if (missing.Count == 0)
+            Console.WriteLine($"  PASS  all {checkedKeys} keys the interface asks for are defined");
+        else
+            foreach (var key in missing)
+                Console.WriteLine($"  FAIL  \"{key}\" is asked for but never defined — users see the key itself");
+
+        return fail == 0 && health && missing.Count == 0;
     }
 }

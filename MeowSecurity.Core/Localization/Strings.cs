@@ -194,6 +194,7 @@ public static class Strings
         ["btn.clear-log"] = ("مسح السجل", "Clear the log"),
         ["btn.copyname"] = ("نسخ الاسم", "Copy name"),
         ["btn.disable"] = ("تعطيل", "Disable"),
+        ["btn.enable"] = ("تفعيل", "Enable"),
         ["btn.dismiss"] = ("إخفاء", "Dismiss"),
         ["btn.elevate"] = ("تشغيل بصلاحية المدير", "Run as administrator"),
         ["btn.kill"] = ("إنهاء العملية", "End process"),
@@ -205,6 +206,7 @@ public static class Strings
         ["btn.resume"] = ("استئناف", "Resume"),
         ["btn.review"] = ("مراجعة", "Review"),
         ["btn.scan"] = ("فحص", "Scan"),
+        ["btn.rescan"] = ("إعادة الفحص", "Rescan"),
         ["btn.serious-only"] = ("الخطير فقط", "Serious only"),
         ["btn.show-system"] = ("إظهار عناصر النظام", "Show Windows components"),
         ["col.connections"] = ("الاتصالات", "Connections"),
@@ -234,6 +236,7 @@ public static class Strings
         ["hint.autoruns"] = ("اضغط فحص لعرض كل ما يبدأ تلقائيا مع النظام. اختر مدخلا لتعطيله أو فتح موقعه.", "Press Scan to list everything that starts by itself. Select an entry to disable it or open its location."),
         ["hint.search"] = ("ابحث باسم العملية أو رقمها…", "Search by process name or id…"),
         ["menu.disable-startup"] = ("تعطيل من بدء التشغيل", "Disable at startup"),
+        ["menu.enable-startup"] = ("تفعيل مع بدء التشغيل", "Enable at startup"),
         ["menu.remove-entry"] = ("إزالة المدخل نهائيا", "Remove the entry permanently"),
         ["nav.alerts"] = ("التنبيهات", "Alerts"),
         ["nav.events"] = ("الأحداث", "Events"),
@@ -263,6 +266,11 @@ public static class Strings
         ["settings.startup"] = ("التشغيل مع بدء ويندوز", "Start with Windows"),
         ["settings.system-notify"] = ("إشعارات ويندوز خارج البرنامج", "Windows notifications outside the app"),
         ["status.monitoring"] = ("المراقبة نشطة", "Monitoring"),
+        // Used while the autorun scan runs. It had no entry here at all, so the startup page
+        // showed the literal key "status.scanning" to every user, in both languages, for as
+        // long as the scan took. Found by screenshotting the product rather than reading it.
+        ["status.scanning"] = ("جاري الفحص...", "Scanning…"),
+        ["status.paused"] = ("المراقبة متوقفة", "Paused"),
 
         // ---------------- engine ----------------
         ["ctl.unsupported"] = ("نوع غير مدعوم", "Unsupported entry type"),
