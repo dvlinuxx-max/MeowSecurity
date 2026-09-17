@@ -10,6 +10,13 @@ public enum AutorunKind
     StartupFolder,
     Service,
     ScheduledTask,
+
+    /// <summary>
+    /// A WMI event subscription. Reported but never switched off from here: removing one means
+    /// writing to the WMI repository as an administrator, and the elevated helper accepts
+    /// exactly the five verbs it was justified with.
+    /// </summary>
+    WmiSubscription,
 }
 
 /// <summary>One thing Windows launches automatically — a registry Run value, a Startup-folder
@@ -46,6 +53,12 @@ public sealed class AutorunEntry
 
     /// <summary>StartupFolder: the shortcut or executable sitting in the folder.</summary>
     public string? ItemPath { get; init; }
+
+    /// <summary>WmiSubscription: the WQL query that decides when it fires.</summary>
+    public string? WmiQuery { get; init; }
+
+    /// <summary>WmiSubscription: whether it runs a command line or a script.</summary>
+    public string? WmiConsumerClass { get; init; }
 
     /// <summary>Service: the registry key name, which is the service's real name.</summary>
     public string? ServiceName { get; init; }

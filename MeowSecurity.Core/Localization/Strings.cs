@@ -291,6 +291,14 @@ public static class Strings
         ["autorun.driver"] = ("مشغل نظام", "Driver"),
         ["autorun.service"] = ("خدمة", "Service"),
         ["autorun.task"] = ("مهمة مجدولة", "Scheduled task"),
+        ["autorun.wmi"] = ("اشتراك WMI", "WMI subscription"),
+        ["autorun.wmi-present"] = (
+            "اشتراك WMI يشغل امرا عند حدث — لا يظهر في مفاتيح بدء التشغيل ولا في المهام المجدولة. تحقق منه.",
+            "A WMI subscription that runs a command on an event — it appears in no Run key and no scheduled task. Worth checking."),
+        ["autorun.wmi-bad"] = (
+            "اشتراك WMI يشغل امرا مريبا عند حدث. هذه طريقة ثبات تفوت الفحص المعتاد.",
+            "A WMI subscription running a suspicious command on an event. This is persistence that the usual checks miss."),
+
         ["autorun.no-target"] = ("تعذر تحديد الملف المستهدف", "Could not resolve the target file"),
         ["autorun.target-missing"] = ("الملف المستهدف غير موجود", "The target file no longer exists"),
         ["autorun.bad-signature"] = ("توقيع رقمي غير صالح", "Invalid digital signature"),

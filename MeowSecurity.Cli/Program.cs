@@ -151,6 +151,79 @@ if (args.Contains("--threads"))
     return;
 }
 
+// What every process is running with, and what it has loaded. Like --handles and --threads,
+// this prints the reading rather than the verdict: the rule table can only check that the
+// judgement is right about its inputs, never that the inputs were true.
+if (args.Contains("--tokens"))
+{
+    var clock = System.Diagnostics.Stopwatch.StartNew();
+    var all = MeowSecurity.Core.Native.SystemProcessSnapshot.Enumerate();
+    int unreadable = 0, sideloads = 0;
+    var notable = new List<string>();
+
+    var tokenClock = new System.Diagnostics.Stopwatch();
+    var moduleClock = new System.Diagnostics.Stopwatch();
+
+    foreach (var p in all.Where(p => p.Pid > 4 && p.Pid != Environment.ProcessId))
+    {
+        tokenClock.Start();
+        var tok = MeowSecurity.Core.Native.TokenInspector.Read(p.Pid);
+        tokenClock.Stop();
+        if (tok.Integrity == MeowSecurity.Core.Native.IntegrityLevel.Unknown) { unreadable++; continue; }
+
+        var marks = new List<string>();
+        if (tok.DebugPrivilege) marks.Add("SeDebugPrivilege ENABLED");
+        if (tok.Impersonating) marks.Add("impersonating");
+        if (tok.IsSystem) marks.Add("SYSTEM");
+
+        moduleClock.Start();
+        var modules = MeowSecurity.Core.Native.ModuleInspector.FindUntrustedModules(p.Pid);
+        moduleClock.Stop();
+        foreach (var m in modules)
+        {
+            sideloads++;
+            marks.Add($"untrusted module: {m.FilePath} ({m.Signature})");
+        }
+
+        if (marks.Count > 0 && !(marks.Count == 1 && tok.IsSystem))
+            notable.Add($"  {p.Name,-28} ({p.Pid,6})  {tok.Integrity,-7}  {string.Join(" | ", marks)}");
+    }
+    clock.Stop();
+
+    Console.WriteLine($"Tokens and loaded modules — {all.Count} processes in {clock.ElapsedMilliseconds} ms");
+    Console.WriteLine($"  tokens {tokenClock.ElapsedMilliseconds} ms, modules {moduleClock.ElapsedMilliseconds} ms");
+    Console.WriteLine($"  {unreadable} token(s) unreadable at this privilege level; {sideloads} untrusted module(s).");
+    Console.WriteLine(new string('-', 78));
+    foreach (var line in notable) Console.WriteLine(line);
+    if (notable.Count == 0) Console.WriteLine("  (nothing notable)");
+    return;
+}
+
+// Named pipes, by name only — this never connects to one. --all prints the whole listing,
+// which is how the patterns get checked against a real machine's legitimate pipes rather than
+// against a guess about them.
+if (args.Contains("--pipes"))
+{
+    var all = MeowSecurity.Core.Native.NamedPipes.All();
+    var suspect = MeowSecurity.Core.Native.NamedPipes.FindSuspect();
+
+    Console.WriteLine($"Named pipes — {all.Count} open, {suspect.Count} matching known tooling");
+    Console.WriteLine(new string('-', 78));
+
+    foreach (var p in suspect)
+        Console.WriteLine($"  {p.Name,-44}  {p.Framework}");
+    if (suspect.Count == 0)
+        Console.WriteLine("  (none — the expected result)");
+
+    if (args.Contains("--all"))
+    {
+        Console.WriteLine($"\nAll {all.Count} pipe names:");
+        foreach (var n in all.OrderBy(n => n, StringComparer.OrdinalIgnoreCase))
+            Console.WriteLine($"  {n}");
+    }
+    return;
+}
+
 if (args.Contains("--events"))
 {
     var store = new EventStore();

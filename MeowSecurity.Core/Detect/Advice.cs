@@ -29,6 +29,7 @@ public static class Guidance
         "masquerade.double-extension", "lolbin.office-parent", "lolbin.encoded-payload",
         "lolbin.bare-rundll32", "sign.invalid",
         "credentials.lsass-read", "memory.foreign-thread",
+        "hijack.sideloaded-module", "privilege.elevated-unsigned", "c2.known-pipe",
     ];
 
     static Guidance() => Strings.Register(Text);
@@ -48,6 +49,41 @@ public static class Guidance
         ["advice.stealth.hidden.do"] = (
             "هذا سلوك جذور خفية ولا يفعله برنامج عادي. افصل الجهاز عن الإنترنت، وافحصه ببرنامج حماية موثوق، ولا تدخل كلمات مرور قبل تنظيفه.",
             "This is rootkit behaviour and no ordinary program does it. Disconnect from the internet, scan with a trusted anti-malware tool, and do not type any passwords until the machine is clean."),
+
+        ["advice.c2.known-pipe.means"] = (
+            "قناة اتصال داخلية على الجهاز تحمل الاسم الافتراضي لاداة يستعملها المهاجمون.",
+            "An internal communication channel on this machine carries the default name of a tool attackers use."),
+        ["advice.c2.known-pipe.do"] = (
+            "اذا لم تكن انت او فريق تقنية المعلومات عندك تجرون اختبار اختراق الان، عامل الجهاز كمخترق: افصله عن الشبكة، ولا تدخل كلمات مرور عليه، واطلب مساعدة مختص. فرق الامن تستعمل الادوات نفسها في اختباراتها المشروعة.",
+            "Unless you or your IT team are running a penetration test right now, treat the machine as compromised: disconnect it from the network, do not type any passwords on it, and get expert help. Security teams use these same tools in legitimate tests."),
+
+        ["advice.hijack.sideloaded-module.means"] = (
+            "برنامج موثوق حمل مكتبة غير موقعة من مجلد يستطيع اي برنامج الكتابة فيه.",
+            "A trusted program has loaded an unsigned library from a folder anything can write to."),
+        ["advice.hijack.sideloaded-module.do"] = (
+            "هذه طريقة شائعة لتشغيل كود داخل برنامج سليم دون لمسه. افتح مجلد المكتبة المذكورة وانظر متى وصلت. اذا لم تكن جزءا من برنامج ثبته بنفسك، انه العملية وافحص الجهاز.",
+            "This is a common way to run code inside a healthy program without touching it. Open the folder the library is in and look at when it arrived. If it is not part of something you installed yourself, end the process and scan the machine."),
+
+        ["advice.privilege.debug-enabled.means"] = (
+            "برنامج يمسك الصلاحية التي تخوله فتح اي عملية اخرى على الجهاز.",
+            "A program holds the privilege that lets it open any other process on the machine."),
+        ["advice.privilege.debug-enabled.do"] = (
+            "المصححات وادوات النسخ الاحتياطي تحتاجها فعلا، لكن برنامجا يعمل من مجلد مؤقت لا يحتاجها ابدا. اذا لم تعرف البرنامج فانهه.",
+            "Debuggers and backup tools genuinely need it, but a program running from a temporary folder never does. If you do not recognise it, end it."),
+
+        ["advice.privilege.impersonation.means"] = (
+            "برنامج ينفذ عملا بهوية حساب اخر بدل هويته.",
+            "A program is doing work under another account's identity instead of its own."),
+        ["advice.privilege.impersonation.do"] = (
+            "الخدمات وبرامج الشبكة تفعل هذا بشكل مشروع. راقبه: اذا ظهر مع اي تنبيه اخر عن البرنامج نفسه، عامل الاثنين معا كحادثة واحدة.",
+            "Services and network software do this legitimately. Keep an eye on it: if it appears alongside any other alert about the same program, treat the two together as one incident."),
+
+        ["advice.privilege.elevated-unsigned.means"] = (
+            "ملف لا يحمل توقيعا رقميا يعمل بصلاحيات مدير من مجلد غير محمي.",
+            "A file with no digital signature is running with administrator rights from an unprotected folder."),
+        ["advice.privilege.elevated-unsigned.do"] = (
+            "اذا لم تمنحه هذه الصلاحيات بنفسك للتو، فهذه نهاية عملية تصعيد صلاحيات. انهه، ثم راجع صفحة بدء التشغيل بحثا عن ما يعيده.",
+            "If you did not just grant it those rights yourself, this is the end of a privilege escalation. End it, then check the startup page for whatever brings it back."),
 
         ["advice.credentials.lsass-read.means"] = (
             "برنامج يقرأ الذاكرة التي يحفظ فيها ويندوز كلمات مرور جلستك.",

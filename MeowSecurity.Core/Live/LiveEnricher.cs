@@ -24,7 +24,8 @@ public sealed class LiveEnricher
 
     /// <summary>What a process holds open and what runs inside it, as of the last deep pass.</summary>
     private readonly record struct DeepFacts(
-        bool ReadsCredentialStore, int InjectionTargets, int ForeignThreads, bool ForeignThreadWritable);
+        bool ReadsCredentialStore, int InjectionTargets, int ForeignThreads, bool ForeignThreadWritable,
+        string? UntrustedModule, bool DebugPrivilege, bool Impersonating, bool ElevatedFromUserPath);
 
     private readonly ConcurrentDictionary<int, Enrichment> _cache = new();
     private readonly ConcurrentDictionary<int, byte> _inFlight = new();
@@ -32,6 +33,20 @@ public sealed class LiveEnricher
     private readonly NetworkScanner _network = new();
 
     private volatile ConcurrentDictionary<int, DeepFacts> _deep = new();
+
+    /// <summary>
+    /// What each process had loaded, and when we last looked.
+    ///
+    /// Reading one process's module list means asking the kernel for the path of every DLL in
+    /// it, and across a desktop that measured at 3.7 seconds against 105 milliseconds for every
+    /// token on the machine — almost the whole cost of the deep pass, paid every twenty seconds
+    /// to re-learn something that had not changed. A process loads its libraries when it starts
+    /// and rarely afterwards, so the answer is cached for its lifetime and refreshed slowly,
+    /// which is enough to still catch a plugin loaded an hour in.
+    /// </summary>
+    private readonly ConcurrentDictionary<int, (string? Module, DateTime When)> _modules = new();
+
+    private static readonly TimeSpan ModuleRecheck = TimeSpan.FromMinutes(5);
     private DateTime _lastDeepPass = DateTime.MinValue;
     private int _deepRunning;
 
@@ -44,6 +59,13 @@ public sealed class LiveEnricher
     /// thread already running — is the kind of thing that comes and goes within a second.
     /// </summary>
     private static readonly TimeSpan DeepInterval = TimeSpan.FromSeconds(20);
+
+    /// <summary>Folders any user — or anything running as them — can drop a file into.</summary>
+    private static readonly string[] UserWritable =
+    {
+        @"\appdata\local\temp\", @"\appdata\roaming\", @"\windows\temp\",
+        @"\downloads\", @"\$recycle.bin\", @"\programdata\", @"\public\",
+    };
 
     private static readonly string WinDir =
         Environment.GetFolderPath(Environment.SpecialFolder.Windows).ToLowerInvariant();
@@ -82,6 +104,10 @@ public sealed class LiveEnricher
                 row.InjectionTargets = d.InjectionTargets;
                 row.ForeignThreads = d.ForeignThreads;
                 row.ForeignThreadWritable = d.ForeignThreadWritable;
+                row.UntrustedModule = d.UntrustedModule;
+                row.DebugPrivilege = d.DebugPrivilege;
+                row.Impersonating = d.Impersonating;
+                row.ElevatedFromUserPath = d.ElevatedFromUserPath;
             }
 
             if (connsByPid.TryGetValue(row.Pid, out var conns))
@@ -104,9 +130,11 @@ public sealed class LiveEnricher
                 ProcessKind.Normal;
         }
 
-        // Forget processes that have exited so the cache can't grow without bound.
+        // Forget processes that have exited so the caches can't grow without bound.
         foreach (var pid in _cache.Keys)
             if (!live.Contains(pid)) _cache.TryRemove(pid, out _);
+        foreach (var pid in _modules.Keys)
+            if (!live.Contains(pid)) _modules.TryRemove(pid, out _);
     }
 
     /// <summary>Kick a background pass for any PID we haven't priced yet. Non-blocking.</summary>
@@ -147,10 +175,12 @@ public sealed class LiveEnricher
             r.Name.Equals("lsass.exe", StringComparison.OrdinalIgnoreCase))?.Pid ?? -1;
         var pids = rows.Where(r => r.Pid > 4 && r.Pid != OwnPid).Select(r => r.Pid).ToList();
         var parents = rows.ToDictionary(r => r.Pid, r => r.ParentPid);
+        var paths = rows.Where(r => r.ImagePath is not null)
+                        .ToDictionary(r => r.Pid, r => r.ImagePath!);
 
         Task.Run(() =>
         {
-            try { _deep = DeepScan(pids, parents, lsassPid); }
+            try { _deep = DeepScan(pids, parents, paths, lsassPid, UntrustedModuleOf); }
             catch { /* a pass that fails leaves the previous one standing */ }
             finally
             {
@@ -160,8 +190,21 @@ public sealed class LiveEnricher
         });
     }
 
+    /// <summary>The cached module verdict for one process, re-read only when it has gone stale.</summary>
+    private string? UntrustedModuleOf(int pid)
+    {
+        if (_modules.TryGetValue(pid, out var known) && DateTime.UtcNow - known.When < ModuleRecheck)
+            return known.Module;
+
+        string? module = Native.ModuleInspector.FindUntrustedModules(pid)
+            .Select(m => m.FilePath).FirstOrDefault();
+        _modules[pid] = (module, DateTime.UtcNow);
+        return module;
+    }
+
     private static ConcurrentDictionary<int, DeepFacts> DeepScan(
-        List<int> pids, Dictionary<int, int> parents, int lsassPid)
+        List<int> pids, Dictionary<int, int> parents, Dictionary<int, string> paths,
+        int lsassPid, Func<int, string?> untrustedModuleOf)
     {
         var readsLsass = new HashSet<int>();
         var injectionTargets = new Dictionary<int, HashSet<int>>();
@@ -198,8 +241,21 @@ public sealed class LiveEnricher
                 bool lsass = readsLsass.Contains(pid);
                 int targets = injectionTargets.TryGetValue(pid, out var t) ? t.Count : 0;
 
-                if (!lsass && targets == 0 && foreign.Count == 0) return;   // the usual case
-                facts[pid] = new DeepFacts(lsass, targets, foreign.Count, foreign.Any(f => f.Writable));
+                string? module = untrustedModuleOf(pid);
+
+                var token = Native.TokenInspector.Read(pid);
+                bool elevatedFromUserLand =
+                    token.Integrity >= Native.IntegrityLevel.High &&
+                    paths.TryGetValue(pid, out string? image) &&
+                    UserWritable.Any(image.ToLowerInvariant().Contains);
+
+                if (!lsass && targets == 0 && foreign.Count == 0 && module is null &&
+                    !token.DebugPrivilege && !token.Impersonating && !elevatedFromUserLand)
+                    return;   // the usual case, and the one worth leaving cheap
+
+                facts[pid] = new DeepFacts(
+                    lsass, targets, foreign.Count, foreign.Any(f => f.Writable),
+                    module, token.DebugPrivilege, token.Impersonating, elevatedFromUserLand);
             });
 
         return facts;

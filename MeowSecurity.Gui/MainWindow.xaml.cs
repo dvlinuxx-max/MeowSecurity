@@ -835,6 +835,7 @@ public partial class MainWindow : Window
         // Behavioural pass: cheap, local, and the only thing that catches a signed LOLBin
         // being driven by something it has no business being driven by.
         RecordEvents(_watcher.Inspect(sample));
+        RecordEvents(_watcher.InspectMachine());
 
         // Device health: the symptom people actually notice, and how a miner announces itself.
         if (_settings.HealthMonitoring)

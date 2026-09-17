@@ -27,7 +27,11 @@ public sealed record ProcessContext(
     bool ReadsCredentialStore = false,
     int InjectionTargets = 0,
     int ForeignThreads = 0,
-    bool ForeignThreadWritable = false);
+    bool ForeignThreadWritable = false,
+    string? UntrustedModule = null,
+    bool DebugPrivilege = false,
+    bool Impersonating = false,
+    bool ElevatedFromUserPath = false);
 
 /// <summary>The engine's opinion of one process: the findings plus their combined weight.</summary>
 public sealed record BehaviorResult(
@@ -146,6 +150,38 @@ public static class BehaviorEngine
                 ctx.ForeignThreadWritable
                     ? Strings.T("detect.foreignthread.rwx", ctx.ForeignThreads)
                     : Strings.T("detect.foreignthread.detail", ctx.ForeignThreads), "T1055"));
+
+        // A trusted program with an unsigned library loaded from a folder anything can write
+        // to. Nothing was injected and nothing was patched — Windows loaded what it was asked
+        // to load. The process's own image is innocent, which is the whole point of the
+        // technique, so no rule that judges the image can see it.
+        if (ctx.UntrustedModule is not null)
+            found.Add(new Detection("hijack.sideloaded-module", Severity.High, 55,
+                Strings.T("detect.sideload.title", ctx.Name),
+                Strings.T("detect.sideload.detail", ctx.UntrustedModule), "T1574.002"));
+
+        // ---- the authority a process is actually running with ----
+
+        // SeDebugPrivilege *enabled* is the master key to every process on the machine. Almost
+        // nothing outside a debugger or a backup agent switches it on, and a program running
+        // from a folder anything can write to has no business holding it at all.
+        if (ctx.DebugPrivilege && fromUserLand)
+            found.Add(new Detection("privilege.debug-enabled", Severity.High, 50,
+                Strings.T("detect.debugpriv.title", ctx.Name),
+                Strings.T("detect.debugpriv.detail"), "T1134.001"));
+
+        // Running under somebody else's token is the point of stealing one.
+        if (ctx.Impersonating && fromUserLand)
+            found.Add(new Detection("privilege.impersonation", Severity.Medium, 30,
+                Strings.T("detect.impersonate.title", ctx.Name),
+                Strings.T("detect.impersonate.detail"), "T1134"));
+
+        // Administrator rights, earned by a binary nobody signed, from a folder anything can
+        // write to. Any one of those is ordinary; together they are the end of an escalation.
+        if (ctx.ElevatedFromUserPath && ctx.Signature != SignatureState.SignedValid)
+            found.Add(new Detection("privilege.elevated-unsigned", Severity.High, 45,
+                Strings.T("detect.elevunsigned.title", ctx.Name),
+                Strings.T("detect.elevunsigned.detail", ctx.ImagePath), "T1068"));
 
         // ---- masquerading: the right name in the wrong place ----
 
@@ -321,6 +357,31 @@ public static class BehaviorEngine
         ["detect.lsass.detail"] = (
             "العملية تمسك مقبضا يخولها قراءة ذاكرة lsass.exe — حيث تحفظ كلمات مرور الجلسة. هذه هي طريقة سرقة بيانات الدخول.",
             "Holds a handle that lets it read the memory of lsass.exe, where the session's passwords live. This is how credentials are stolen."),
+
+        ["detect.pipe.title"] = ("قناة تحكم معروفة مفتوحة: {0}", "A known control channel is open: {0}"),
+        ["detect.pipe.detail"] = (
+            "الانبوب المسمى {0} يطابق الاسم الافتراضي لاداة اختراق ({1}). لم نتصل به — التعرف كان بالاسم وحده.",
+            "The named pipe {0} matches the default name used by intrusion tooling ({1}). We did not connect to it — this was recognised by name alone."),
+
+        ["detect.sideload.title"] = ("مكتبة غير موثوقة داخل برنامج موثوق: {0}", "Untrusted library inside a trusted program: {0}"),
+        ["detect.sideload.detail"] = (
+            "حمل المكتبة {0} من مجلد يستطيع اي برنامج الكتابة فيه، وهي غير موقعة. هذا هو اسلوب اختطاف المكتبات.",
+            "Loaded {0} from a folder anything can write to, and it is not signed. This is library hijacking."),
+
+        ["detect.debugpriv.title"] = ("امتياز تنقيح مفعل: {0}", "Debug privilege enabled: {0}"),
+        ["detect.debugpriv.detail"] = (
+            "يمسك SeDebugPrivilege مفعلا — المفتاح الذي يخوله فتح اي عملية على الجهاز مهما كان مالكها.",
+            "Holds SeDebugPrivilege switched on — the key that lets it open any process on the machine, whoever owns it."),
+
+        ["detect.impersonate.title"] = ("يعمل بهوية مستعارة: {0}", "Running under a borrowed identity: {0}"),
+        ["detect.impersonate.detail"] = (
+            "احد خيوطه يعمل بتوكن يخص حسابا اخر — هذه هي طريقة استعمال توكن مسروق.",
+            "One of its threads is running under another account's token — how a stolen token gets used."),
+
+        ["detect.elevunsigned.title"] = ("صلاحيات مدير لملف غير موقع: {0}", "Administrator rights for an unsigned file: {0}"),
+        ["detect.elevunsigned.detail"] = (
+            "يعمل بصلاحيات مرتفعة من {0} بلا توقيع رقمي.",
+            "Running elevated from {0} with no digital signature."),
 
         ["detect.injhandle.title"] = ("مقابض حقن على عمليات اخرى: {0}", "Injection handles on other processes: {0}"),
         ["detect.injhandle.detail"] = (

@@ -62,6 +62,47 @@ public sealed class BehaviorWatcher
         }
     }
 
+    /// <summary>
+    /// Findings that belong to the machine rather than to any one process.
+    ///
+    /// A named pipe has no owner we are willing to ask for — finding out means connecting to
+    /// it, and this product does not connect to an unknown implant's control channel or risk
+    /// taking a healthy program's only server instance. So the pipe is reported as itself.
+    /// Deduped by name for the life of the session, because a pipe that is still open in
+    /// twenty seconds is the same pipe, not a second one.
+    /// </summary>
+    public List<SecurityEvent> InspectMachine()
+    {
+        lock (_gate)
+        {
+            var fresh = new List<SecurityEvent>();
+
+            foreach (var pipe in Native.NamedPipes.FindSuspect())
+            {
+                if (!_machineSeen.Add($"pipe:{pipe.Name}")) continue;
+
+                var ev = new SecurityEvent
+                {
+                    Severity = Severity.Critical,
+                    Score = 80,
+                    Pid = 0,
+                    Process = pipe.Name,
+                    Rule = "c2.known-pipe",
+                    Title = Localization.Strings.T("detect.pipe.title", pipe.Framework),
+                    Detail = Localization.Strings.T("detect.pipe.detail", pipe.Name, pipe.Framework),
+                    Technique = "T1071",
+                    AllRules = ["c2.known-pipe"],
+                };
+                _store.Append(ev);
+                fresh.Add(ev);
+            }
+
+            return fresh;
+        }
+    }
+
+    private readonly HashSet<string> _machineSeen = [];
+
     private List<SecurityEvent> InspectCore(IReadOnlyList<LiveProcess> rows)
     {
         var namesByPid = new Dictionary<int, string>(rows.Count);
@@ -81,7 +122,9 @@ public sealed class BehaviorWatcher
                 row.ImagePath, row.CommandLine, row.Signature,
                 row.IsHidden, row.HasImplantedPe, row.RemoteConnections, row.SessionId,
                 row.ReadsCredentialStore, row.InjectionTargets,
-                row.ForeignThreads, row.ForeignThreadWritable));
+                row.ForeignThreads, row.ForeignThreadWritable,
+                row.UntrustedModule, row.DebugPrivilege,
+                row.Impersonating, row.ElevatedFromUserPath));
 
             if (result.IsEmpty) continue;
 

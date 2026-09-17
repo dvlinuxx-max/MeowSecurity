@@ -36,9 +36,12 @@ internal static class RuleTest
         string name, string? parent = null, string? path = null, string? cmd = null,
         SignatureState sig = SignatureState.SignedValid, bool hidden = false,
         bool implanted = false, int remote = 0,
-        bool lsass = false, int injTargets = 0, int foreignThreads = 0, bool foreignRwx = false) =>
+        bool lsass = false, int injTargets = 0, int foreignThreads = 0, bool foreignRwx = false,
+        string? badModule = null, bool debugPriv = false, bool impersonating = false,
+        bool elevatedUserPath = false) =>
         new(1234, name, 900, parent, path ?? Sys + name, cmd, sig, hidden, implanted, remote, 1,
-            lsass, injTargets, foreignThreads, foreignRwx);
+            lsass, injTargets, foreignThreads, foreignRwx,
+            badModule, debugPriv, impersonating, elevatedUserPath);
 
     private static readonly Case[] Cases =
     {
@@ -62,6 +65,24 @@ internal static class RuleTest
             P("updater.exe", "explorer.exe", path: Temp + "updater.exe",
               sig: SignatureState.Unsigned, injTargets: 4),
             Expect.Alert, "inject.handles"),
+
+        // The host is signed, in Program Files, launched by explorer — every rule that judges
+        // a process by its own image says it is fine, and every one of them is right. The lie
+        // is one directory down.
+        new("Signed program side-loading an unsigned DLL from AppData",
+            P("trusted.exe", "explorer.exe", path: @"C:\Program Files\Vendor\trusted.exe",
+              badModule: @"C:\Users\dev\AppData\Roaming\Vendor\version.dll"),
+            Expect.Alert, "hijack.sideloaded-module"),
+
+        new("Unsigned binary in Temp holding the debug privilege",
+            P("svc.exe", "cmd.exe", path: Temp + "svc.exe",
+              sig: SignatureState.Unsigned, debugPriv: true),
+            Expect.Alert, "privilege.debug-enabled"),
+
+        new("Unsigned binary running elevated from a writable folder",
+            P("setup.exe", "explorer.exe", path: @"C:\ProgramData\setup.exe",
+              sig: SignatureState.Unsigned, elevatedUserPath: true),
+            Expect.Alert, "privilege.elevated-unsigned"),
         new("Word spawning PowerShell (macro)",
             P("powershell.exe", "winword.exe", cmd: Sys + "powershell.exe -w hidden"),
             Expect.Alert, "lolbin.office-parent"),
@@ -189,6 +210,25 @@ internal static class RuleTest
         // injection rule fired on it, which would have meant an alert on an idle machine.
         new("conhost holding full access to its console's processes",
             P("conhost.exe", "svchost.exe", injTargets: 4),
+            Expect.Silent),
+
+        // A debugger holds the debug privilege because that is what a debugger is. The rule
+        // asks for the combination — the privilege *and* a home anything could have written to.
+        new("A debugger in Program Files holding the debug privilege",
+            P("windbg.exe", "explorer.exe", path: @"C:\Program Files\Debugging Tools\windbg.exe",
+              debugPriv: true),
+            Expect.Silent),
+
+        // An installer the user just approved is elevated and unsigned, which is ordinary the
+        // moment it lives somewhere an installer normally lives.
+        new("A signed installer running elevated from Program Files",
+            P("setup.exe", "explorer.exe", path: @"C:\Program Files\App\setup.exe",
+              elevatedUserPath: false),
+            Expect.Silent),
+
+        // Services impersonate their callers all day. On its own it says nothing.
+        new("A system service impersonating a caller",
+            P("svchost.exe", "services.exe", impersonating: true),
             Expect.Silent),
     };
 

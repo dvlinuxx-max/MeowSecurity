@@ -43,10 +43,24 @@ launched a process, from where, and with what arguments.
 - **Injected code detection.** Executable memory with no file behind it, PE
   headers implanted in another process's address space, and threads whose entry
   point lies outside every mapped image — code running from nowhere on disk.
+- **Library hijacking.** A signed program with an unsigned library loaded from a
+  folder anything can write to. Nothing is injected and nothing is patched, so no
+  rule that judges a process by its own image can see it — the lie is one
+  directory down.
+- **Privilege inspection.** Integrity level, an enabled debug privilege, a thread
+  running under somebody else's token. A binary that ends up as administrator is
+  usually the same binary that started as the user; what changed is the token.
 - **Autoruns, with control.** Registry Run keys, Startup folders, auto-starting
-  services and drivers, and scheduled tasks — signature-checked, and each one can
-  be opened, disabled or removed. Disabling writes the same flags Task Manager
-  uses, so the machine agrees with itself and every change can be undone.
+  services and drivers, scheduled tasks, and WMI event subscriptions — the
+  persistence that appears in none of the other four, so checking all of them and
+  stopping is checking nothing. All signature-checked, and each one can be opened,
+  disabled or removed. Disabling writes the same flags Task Manager uses, so the
+  machine agrees with itself and every change can be undone. WMI subscriptions are
+  reported, not removed.
+- **Known control channels.** Named pipes matching the defaults that
+  post-exploitation frameworks ship with — recognised by name alone. The pipes are
+  never connected to: doing so would take a single-instance server away from a
+  working program, and a monitor that damages what it watches has failed.
 - **A durable event log,** so "what happened while I was away" has an answer.
 - **Plain-language alerts.** Every finding comes with what it means and what to do
   about it, in two sentences, with the buttons to do it.
@@ -83,6 +97,8 @@ still runs and tells you which parts are limited.
 | `--watch [seconds]` | Live process starts and per-process network, from the kernel. |
 | `--handles` | Every cross-process handle, resolved, with the parent/child ones marked. |
 | `--threads` | Threads starting outside any mapped image. Prints nothing on a clean machine. |
+| `--tokens` | Integrity level, debug privilege, impersonation and untrusted loaded libraries. |
+| `--pipes [--all]` | Named pipes matching known tooling; `--all` lists every pipe name. |
 | `--events [--all]` | The recorded security events. |
 | `--autoruns` | Everything that starts by itself, with its verdict. |
 | `--autorun-on/off <name>` | Enable or disable one startup entry. |

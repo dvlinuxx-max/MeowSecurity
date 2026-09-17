@@ -42,9 +42,39 @@ public sealed class AutorunScanner
 
         ReadServices(list);
         ReadScheduledTasks(list);
+        ReadWmiSubscriptions(list);
 
         foreach (var e in list) Score(e);
         return list;
+    }
+
+    /// <summary>
+    /// WMI event subscriptions — the persistence that appears in no Run key, no Startup folder
+    /// and no task list, so a person who has checked all three has not checked this.
+    ///
+    /// Scored differently from everything else here: for a Run key the question is whether the
+    /// program it points at can be trusted, but a subscription has no image to verify. It has a
+    /// query and a command, and on an ordinary desktop the honest answer is that almost nothing
+    /// legitimate registers one at all. So presence is most of the finding, and the entry says
+    /// what it runs rather than who signed it.
+    /// </summary>
+    private static void ReadWmiSubscriptions(List<AutorunEntry> list)
+    {
+        var subscriptions = WmiPersistence.Scan(out bool readable);
+        _ = readable;   // the UI says "needs administrator" elsewhere; nothing to add here
+
+        foreach (var sub in subscriptions)
+        {
+            list.Add(new AutorunEntry
+            {
+                Name = sub.Name,
+                Location = Strings.T("autorun.wmi"),
+                Command = string.IsNullOrEmpty(sub.Action) ? sub.Query : sub.Action,
+                Kind = AutorunKind.WmiSubscription,
+                WmiQuery = sub.Query,
+                WmiConsumerClass = sub.ConsumerClass,
+            });
+        }
     }
 
     /// <summary>
@@ -317,6 +347,19 @@ public sealed class AutorunScanner
 
     private void Score(AutorunEntry e)
     {
+        // A WMI subscription has no image to verify — there is no file behind it to sign or
+        // fail to sign. What it has is a command, and the fact that it exists at all. On an
+        // ordinary desktop very little legitimate software registers one, and the technique is
+        // a favourite precisely because the usual three places to look will not show it. So it
+        // is surfaced for a decision rather than waved through for want of a signature.
+        if (e.Kind == AutorunKind.WmiSubscription)
+        {
+            bool loud = LolbinRules.SuspiciousCommandLine(e.Command) is not null;
+            e.Verdict = loud ? Verdict.Suspicious : Verdict.Review;
+            e.Reason = loud ? Strings.T("autorun.wmi-bad") : Strings.T("autorun.wmi-present");
+            return;
+        }
+
         // Persistence that runs a *trusted* tool is the harder case: the binary is signed by
         // Microsoft and passes every file check, and the attack lives entirely in the command
         // line. Judge that first, because it outranks anything the signature can tell us.

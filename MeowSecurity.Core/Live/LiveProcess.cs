@@ -56,6 +56,10 @@ public sealed class LiveProcess
     public int InjectionTargets { get; set; }
     public int ForeignThreads { get; set; }
     public bool ForeignThreadWritable { get; set; }
+    public string? UntrustedModule { get; set; }
+    public bool DebugPrivilege { get; set; }
+    public bool Impersonating { get; set; }
+    public bool ElevatedFromUserPath { get; set; }
 
     public IReadOnlyList<string> Reasons { get; set; } = [];
 }
