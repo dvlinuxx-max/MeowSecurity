@@ -33,11 +33,16 @@ launched a process, from where, and with what arguments.
 - **Per-process network throughput.** Windows keeps no such counter — even Task
   Manager's network column is machine-wide. This one adds up the kernel's own
   send and receive events, so you can see which program is uploading.
+- **Credential-theft detection.** Every cross-process handle on the machine is
+  resolved to the process it names. A handle to LSASS with read access is how
+  credentials are stolen, whatever the tool is called and whoever signed it — the
+  handle is the act, not a clue about it.
 - **Hidden process detection.** Every process is enumerated through two
   independent sources and the lists are diffed; anything visible to one and not
   the other is surfaced.
-- **Injected code detection.** Executable memory with no file behind it, and PE
-  headers implanted in another process's address space.
+- **Injected code detection.** Executable memory with no file behind it, PE
+  headers implanted in another process's address space, and threads whose entry
+  point lies outside every mapped image — code running from nowhere on disk.
 - **Autoruns, with control.** Registry Run keys, Startup folders, auto-starting
   services and drivers, and scheduled tasks — signature-checked, and each one can
   be opened, disabled or removed. Disabling writes the same flags Task Manager
@@ -76,6 +81,8 @@ still runs and tells you which parts are limited.
 |---|---|
 | `--rule-test` | Detection regression suite — attack shapes that must fire, developer noise that must stay silent. |
 | `--watch [seconds]` | Live process starts and per-process network, from the kernel. |
+| `--handles` | Every cross-process handle, resolved, with the parent/child ones marked. |
+| `--threads` | Threads starting outside any mapped image. Prints nothing on a clean machine. |
 | `--events [--all]` | The recorded security events. |
 | `--autoruns` | Everything that starts by itself, with its verdict. |
 | `--autorun-on/off <name>` | Enable or disable one startup entry. |
