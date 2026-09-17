@@ -30,14 +30,37 @@ permits elevating a separate process:
 </Package>
 ```
 
-`allowElevation` is a restricted capability: Microsoft has to approve its use before
-submission. A pre-approval request describing this design was sent to
-`reportapp@microsoft.com` on 16 September 2026.
+`allowElevation` is a restricted capability. A pre-approval request describing this design was
+sent to `reportapp@microsoft.com` on 16 September 2026; the Store Certification team replied on
+17 September 2026, and the answer changes the plan:
 
-**Nothing should be packaged for the Store until that answer arrives.** If it is refused, the
-Store build would silently lose live capture, per-process network figures, protected-process
-inspection and machine-wide autorun control — which would make it a materially weaker product
-than the one published on GitHub, and that difference has to be stated plainly rather than
+> All restricted capabilities are evaluated during the certification process. The
+> `allowElevation` capability is generally not recommended […] In most cases, the use of this
+> capability won't be approved. […] developers must provide comprehensive details explaining why
+> they require this capability and why no alternative design or implementation would be
+> sufficient. […] our team cannot guarantee approval.
+
+**There is no separate pre-approval step to wait for.** The capability is judged during
+certification, on the strength of a written justification submitted with the product, and it is
+refused by default — so the justification is the whole of the case, not a formality.
+
+That justification is [STORE-JUSTIFICATION.md](STORE-JUSTIFICATION.md), written against the five
+points the certification team listed. It lives in the repository so it can serve as the public
+URL they also require, and so every claim in it can be checked against the code.
+
+Partner Center's justification field is short (roughly 500 characters), so paste the summary
+below and let it carry the link:
+
+> Meow Security is an offline host intrusion detector. Three of its detections need privileges
+> Windows withholds from a packaged app: a kernel ETW session, protected-process image paths, and
+> machine-wide autorun control. Rather than elevate the app, they run in a separate helper started
+> on demand behind the UAC prompt — it accepts five fixed verbs, executes no path it is given,
+> admits only our own signed image over a user-only pipe, and exits with the app. Full
+> justification: https://github.com/dvlinuxx-max/MeowSecurity/blob/main/STORE-JUSTIFICATION.md
+
+If it is refused even so, the Store build silently loses live capture, per-process network
+figures, protected-process inspection and machine-wide autorun control — a materially weaker
+product than the GitHub one. That difference gets stated plainly on the Store listing rather than
 shipped quietly.
 
 ## Two builds, one codebase

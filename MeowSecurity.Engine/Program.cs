@@ -17,7 +17,7 @@ namespace MeowSecurity.Engine;
 /// kernel trace session, reading protected process images, and changing a machine-wide
 /// auto-start entry — and it is deliberately built to be incapable of anything else.
 ///
-/// It accepts four verbs over one pipe, executes no path it is given, exits when the
+/// It accepts five verbs over one pipe, executes no path it is given, exits when the
 /// application that started it goes away, and refuses any client that is not that application.
 /// A privilege boundary is only as good as what it refuses, so the refusals are the design.
 /// </summary>
