@@ -127,6 +127,11 @@ public sealed class LiveRow : INotifyPropertyChanged
 
     public void Update(LiveProcess p)
     {
+        // The tooltip is built from these two, and they are set once by the background
+        // enrichment and then never change again. Announcing it every second for every row
+        // made WPF rebuild a string nobody was hovering over, two hundred times a second.
+        bool detailChanged = ImagePath != p.ImagePath || CommandLine != p.CommandLine;
+
         ImagePath = p.ImagePath;
         CommandLine = p.CommandLine;
         Name = p.Name;
@@ -155,7 +160,7 @@ public sealed class LiveRow : INotifyPropertyChanged
         Reasons = string.Join("، ", p.Reasons);
         Kind = p.Kind;
         Verdict = p.Verdict;
-        Notify(nameof(Tooltip));
+        if (detailChanged) Notify(nameof(Tooltip));
     }
 
     public void MarkNew() { _highlightTicks = 2; Notify(nameof(RowHighlight)); }
@@ -168,22 +173,42 @@ public sealed class LiveRow : INotifyPropertyChanged
 
     private static Brush Res(string key) => (Brush)App.Current.Resources[key];
 
+    // The unit names never change while the app runs, but these two ran for every row on
+    // every tick — each call looking up four or five translations and allocating an array to
+    // hold them, a couple of thousand times a second to format numbers nobody had asked for.
+    // They are looked up once and rebuilt only if the language is switched.
+    private static string[] _byteUnits = [];
+    private static string[] _rateUnits = [];
+    private static string _unitsLanguage = "";
+
+    private static void EnsureUnits()
+    {
+        string language = Strings.T("unit.bytes");
+        if (language == _unitsLanguage && _byteUnits.Length > 0) return;
+
+        _byteUnits = [Strings.T("unit.bytes"), Strings.T("unit.kilo"), Strings.T("unit.mega"),
+                      Strings.T("unit.giga"), Strings.T("unit.tera")];
+        _rateUnits = [Strings.T("unit.rate.b"), Strings.T("unit.rate.k"),
+                      Strings.T("unit.rate.m"), Strings.T("unit.rate.g")];
+        _unitsLanguage = language;
+    }
+
     private static string Bytes(long b)
     {
         if (b <= 0) return "";
-        string[] u = { Strings.T("unit.bytes"), Strings.T("unit.kilo"), Strings.T("unit.mega"), Strings.T("unit.giga"), Strings.T("unit.tera") };
+        EnsureUnits();
         double v = b; int i = 0;
-        while (v >= 1024 && i < u.Length - 1) { v /= 1024; i++; }
-        return $"{v:0.#} {u[i]}";
+        while (v >= 1024 && i < _byteUnits.Length - 1) { v /= 1024; i++; }
+        return $"{v:0.#} {_byteUnits[i]}";
     }
 
     private static string Rate(long bps)
     {
         if (bps <= 0) return "";
-        string[] u = { Strings.T("unit.rate.b"), Strings.T("unit.rate.k"), Strings.T("unit.rate.m"), Strings.T("unit.rate.g") };
+        EnsureUnits();
         double v = bps; int i = 0;
-        while (v >= 1024 && i < u.Length - 1) { v /= 1024; i++; }
-        return $"{v:0.#} {u[i]}";
+        while (v >= 1024 && i < _rateUnits.Length - 1) { v /= 1024; i++; }
+        return $"{v:0.#} {_rateUnits[i]}";
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;

@@ -123,6 +123,17 @@
             <Setter Property="RowHeight" Value="30" />
             <Setter Property="ColumnHeaderHeight" Value="34" />
             <Setter Property="FontSize" Value="12.5" />
+
+            <!-- Two hundred rows are re-read every second, and measurement said the window
+                 being visible cost twenty-two per cent of a processor core while the
+                 monitoring behind it cost four. Recycling reuses the row containers instead
+                 of building new ones, and virtualising the columns stops the cells scrolled
+                 off to the side from being realised at all. -->
+            <Setter Property="EnableRowVirtualization" Value="True" />
+            <Setter Property="EnableColumnVirtualization" Value="True" />
+            <Setter Property="VirtualizingPanel.IsVirtualizing" Value="True" />
+            <Setter Property="VirtualizingPanel.VirtualizationMode" Value="Recycling" />
+            <Setter Property="VirtualizingPanel.ScrollUnit" Value="Pixel" />
         </Style>
         <Style TargetType="DataGridColumnHeader">
             <Setter Property="Background" Value="Transparent" />
@@ -332,19 +343,11 @@
 
                 <!-- Live indicator -->
                 <StackPanel Grid.Row="3" Orientation="Horizontal" Margin="24,0,24,22">
+                    <!-- The pulse is driven from code-behind, not a Loaded trigger, so that it
+                         can be stopped when the window is not in front of the user. See
+                         MainWindow.SetAnimations. -->
                     <Ellipse x:Name="LiveDot" Width="9" Height="9" Fill="{StaticResource Green}"
-                             VerticalAlignment="Center" Margin="0,0,9,0">
-                        <Ellipse.Triggers>
-                            <EventTrigger RoutedEvent="FrameworkElement.Loaded">
-                                <BeginStoryboard>
-                                    <Storyboard RepeatBehavior="Forever" AutoReverse="True">
-                                        <DoubleAnimation Storyboard.TargetProperty="Opacity"
-                                                         From="1" To="0.25" Duration="0:0:1.1" />
-                                    </Storyboard>
-                                </BeginStoryboard>
-                            </EventTrigger>
-                        </Ellipse.Triggers>
-                    </Ellipse>
+                             VerticalAlignment="Center" Margin="0,0,9,0" />
                     <TextBlock x:Name="LiveLabel" Text="{loc:T status.monitoring}" Foreground="{StaticResource Muted}"
                                FontSize="12" VerticalAlignment="Center" />
                 </StackPanel>

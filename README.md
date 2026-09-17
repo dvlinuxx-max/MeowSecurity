@@ -106,6 +106,7 @@ still runs and tells you which parts are limited.
 | `--tokens` | Integrity level, debug privilege, impersonation and untrusted loaded libraries. |
 | `--pipes [--all]` | Named pipes matching known tooling; `--all` lists every pipe name. |
 | `--accounts` | Local accounts, who is an administrator, and who is signed in. |
+| `--bench [ticks]` | Times one second of monitoring work, stage by stage, with no interface attached. |
 | `--events [--all]` | The recorded security events. |
 | `--autoruns` | Everything that starts by itself, with its verdict. |
 | `--autorun-on/off <name>` | Enable or disable one startup entry. |

@@ -271,8 +271,22 @@ public sealed class LiveEnricher
         return facts;
     }
 
+    /// <summary>
+    /// How many processes have been priced since start-up.
+    ///
+    /// Pricing is the expensive half of the monitor — a signature verification and a walk of
+    /// the process's committed memory — and it is supposed to happen once per process. If this
+    /// keeps climbing on an idle machine, something is being re-priced that should have been
+    /// cached, and that is worth being able to see rather than guess at.
+    /// </summary>
+    public long PricedCount => Interlocked.Read(ref _priced);
+
+    private long _priced;
+
     private Enrichment Price(int pid, string name, bool hidden, bool scanMemory)
     {
+        Interlocked.Increment(ref _priced);
+
         string? publisher = null, description = null;
         var signature = SignatureState.Unknown;
 

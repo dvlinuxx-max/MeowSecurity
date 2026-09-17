@@ -261,6 +261,79 @@ if (args.Contains("--accounts"))
     return;
 }
 
+// Times one second's worth of monitoring work, stage by stage, with no user interface
+// attached. The product was measured taking a quarter of a core while sitting still, and two
+// guesses about why were both wrong — so this splits the tick into its parts and makes the
+// machine say which one costs what.
+if (args.Contains("--bench"))
+{
+    int ticks = 20;
+    int at = Array.IndexOf(args, "--bench");
+    if (at + 1 < args.Length && int.TryParse(args[at + 1], out int n)) ticks = n;
+
+    var sampler = new MeowSecurity.Core.Live.LiveSampler();
+    var enricher = new MeowSecurity.Core.Live.LiveEnricher();
+    var watcher = new BehaviorWatcher(new EventStore());
+
+    var timers = new Dictionary<string, double>
+    {
+        ["sample"] = 0, ["overlay"] = 0, ["inspect"] = 0, ["machine"] = 0,
+    };
+    var clock = new System.Diagnostics.Stopwatch();
+    int rows = 0;
+
+    // One warm-up tick: the first pass pays for caches everything after it reuses.
+    sampler.Sample(out _);
+
+    double cpuBefore = System.Diagnostics.Process.GetCurrentProcess().TotalProcessorTime.TotalSeconds;
+    var wall = System.Diagnostics.Stopwatch.StartNew();
+
+    for (int i = 0; i < ticks; i++)
+    {
+        clock.Restart();
+        var sample = sampler.Sample(out _);
+        timers["sample"] += clock.Elapsed.TotalMilliseconds;
+        rows = sample.Count;
+
+        clock.Restart();
+        enricher.Overlay(sample);
+        timers["overlay"] += clock.Elapsed.TotalMilliseconds;
+
+        clock.Restart();
+        watcher.Inspect(sample);
+        timers["inspect"] += clock.Elapsed.TotalMilliseconds;
+
+        clock.Restart();
+        watcher.InspectMachine();
+        timers["machine"] += clock.Elapsed.TotalMilliseconds;
+
+        enricher.EnrichMissing(sample, scanMemory: true);
+        enricher.DeepScanIfDue(sample);
+
+        Thread.Sleep(1000);
+
+        // Pricing is meant to happen once per process. If this keeps climbing on an idle
+        // machine, something is being re-priced that should already be cached.
+        if (i == 4 || i == ticks - 1)
+            Console.WriteLine($"  after tick {i + 1,3}: {enricher.PricedCount} processes priced so far");
+    }
+
+    wall.Stop();
+    double cpuUsed = System.Diagnostics.Process.GetCurrentProcess().TotalProcessorTime.TotalSeconds - cpuBefore;
+
+    Console.WriteLine($"Tick cost — {ticks} ticks over {rows} processes");
+    Console.WriteLine(new string('-', 78));
+    foreach (var (name, total) in timers.OrderByDescending(t => t.Value))
+        Console.WriteLine($"  {name,-10}  {total / ticks,8:0.0} ms per tick   {total,9:0} ms total");
+
+    Console.WriteLine(new string('-', 78));
+    Console.WriteLine($"  process CPU: {cpuUsed:0.0}s over {wall.Elapsed.TotalSeconds:0}s wall " +
+                      $"= {100 * cpuUsed / wall.Elapsed.TotalSeconds:0.0}% of one core");
+    Console.WriteLine("  (background enrichment and the deep pass are included in the CPU figure");
+    Console.WriteLine("   but not in the per-stage times, which measure only the tick itself.)");
+    return;
+}
+
 if (args.Contains("--events"))
 {
     var store = new EventStore();
