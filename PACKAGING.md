@@ -11,6 +11,9 @@ match exactly, or the package will not be accepted.
 | `Package/Identity/Name` | `MohammedAbdAlrahman.MeowSecurity` |
 | `Package/Identity/Publisher` | `CN=D81C7D5E-634A-451A-B6B5-3B12E63A7945` |
 | `Package/Properties/PublisherDisplayName` | `Mohammed Abd Alrahman` |
+| Package Family Name | `MohammedAbdAlrahman.MeowSecurity_a2kxrh321s79p` |
+
+Confirmed against Partner Center on 17 September 2026.
 
 The reservation expires if nothing is submitted within three months of 16 September 2026.
 
@@ -48,8 +51,12 @@ That justification is [STORE-JUSTIFICATION.md](STORE-JUSTIFICATION.md), written 
 points the certification team listed. It lives in the repository so it can serve as the public
 URL they also require, and so every claim in it can be checked against the code.
 
-Partner Center's justification field is short (roughly 500 characters), so paste the summary
-below and let it carry the link:
+The full justification is already saved in Partner Center, under **Supplemental info > Additional
+Testing Information > Notes for Certification** — which is where the certification team reads it,
+and which takes as much text as it needs. It covers all five of their points, the alternatives
+that were rejected and why, the statement of assurance, and how to test the elevation path.
+
+Where a short field asks for it instead, paste this and let it carry the link:
 
 > Meow Security is an offline host intrusion detector. Three of its detections need privileges
 > Windows withholds from a packaged app: a kernel ETW session, protected-process image paths, and

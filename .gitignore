@@ -4,3 +4,7 @@ obj/
 *.suo
 .vs/
 *.log
+
+# The built package is 67 MB and is rebuilt from source by msix/build_msix.py.
+msix/out/
+msix/layout/
